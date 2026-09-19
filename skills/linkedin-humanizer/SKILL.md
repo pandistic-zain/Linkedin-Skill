@@ -71,6 +71,10 @@ linkedin-humanizer --mode audit <text>
 linkedin-humanizer --mode profile
 ```
 
+## Activity logging
+
+Call `lib.start_run("linkedin-humanizer", input_summary=<mode used>)` before running the passes, and `lib.finish_run(run_id, "linkedin-humanizer", "completed", decision=<mode>, outcome=<"approved" if the scrubbed text is kept as-is, "edited" if the user asked for further changes, or omit for --mode audit/profile>)` once done. See `../../references/activity-logging.md`.
+
 ## The four passes
 
 ### Pass 1: SCRUB (score, then delete or replace)
@@ -173,3 +177,4 @@ See `references/examples.md` for worked examples.
 ## Related skills
 
 - `linkedin-post-writer` — generates drafts that already pass the humanizer
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary

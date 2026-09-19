@@ -30,6 +30,10 @@ Stand up a marketing-team LinkedIn advocacy program that scales without killing 
 - **KPI dashboard spec** (team reach, engagement, pipeline attribution)
 - **Governance playbook** (brand safety without blocking velocity)
 
+## Activity logging
+
+Call `lib.start_run("linkedin-employee-advocacy", input_summary=<team size + goal>)` at the start of the consult and `lib.finish_run(run_id, "linkedin-employee-advocacy", "completed", decision=<deliverable produced, e.g. "14-day launch plan">)` once it's delivered. No `outcome` — this skill has no single approve/reject moment. See `../../references/activity-logging.md`.
+
 ## Four operating principles
 
 1. **Scale authentically.** Individuals compose in their own voice, not corporate language. Corporate-tone team posts underperform authentic voice 3x.
@@ -126,3 +130,4 @@ Stand up a marketing-team LinkedIn advocacy program that scales without killing 
 - `linkedin-thread-monitor` — track which team members' comments drive author replies
 - `linkedin-engager-analytics` — see who's engaging with each team member's posts
 - `linkedin-comment-drafter` — its **reshare mode** is how team members amplify a brand or colleague post to their own feed with a short take (`lib.repost(post_url, commentary)` on approval); the cleanest advocacy action after an original post
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary

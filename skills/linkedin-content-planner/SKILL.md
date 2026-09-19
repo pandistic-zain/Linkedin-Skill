@@ -99,6 +99,7 @@ Every formula earns a primary reaction: comments, reposts, likes, or saves (see 
 
 ## Steps
 
+0. **Activity logging.** Call `lib.start_run("linkedin-content-planner", input_summary=<theme or audience>)` and keep `run_id`. After step 6, call `lib.finish_run(run_id, "linkedin-content-planner", "completed", outcome="approved" if the user keeps the plan else "rejected")`. See `../../references/activity-logging.md`.
 1. Gather inputs. Ask user for theme, audience, pillar preferences if not provided.
 2. Validate pillar mix sums to 100%; warn if any pillar >60%.
 3. For each posting day, pick:
@@ -121,6 +122,7 @@ See `references/example-plan-week.md` for a filled-in 7-day plan.
 - `references/example-plan-week.md` — worked example
 - `references/pillars-framework.md` — the 3-pillar discipline explained
 - `../../references/founder-topics.md` — founders-edition angle library (A1-A10) and founder pillar set
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary
 
 ## Related skills
 

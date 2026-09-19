@@ -83,16 +83,16 @@ proven: you know they land. Write them here before a draft dulls them.
 People, companies, tools and places you are free to name in public, and the ones
 you are not. Drafts stay vague when they do not know which is which.
 
-- Free to name: (…)
-- Never name: (…)
-- Ask first: (…)
+- Free to name: (â€¦)
+- Never name: (â€¦)
+- Ask first: (â€¦)
 
 ## 9. Off limits
 
 Subjects that stay out of posts regardless of how well they would perform: active
 deals, litigation, health, other people's business, anything under NDA.
 
-- (…)
+- (â€¦)
 
 ---
 

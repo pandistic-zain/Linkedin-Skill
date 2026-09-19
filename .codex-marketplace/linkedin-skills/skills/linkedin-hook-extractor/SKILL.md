@@ -31,6 +31,7 @@ A LinkedIn post URL (any type: activity, share, ugcPost).
 
 ## Steps
 
+0. **Activity logging.** Call `lib.start_run("linkedin-hook-extractor", input_summary=<post URL>)`, and `lib.finish_run(run_id, "linkedin-hook-extractor", "completed")` once the analysis is returned (no `outcome` — read-only skill). See `../../references/activity-logging.md`.
 1. **Parse URL.** `lib.url_parser.parse_linkedin_url` → `post_urn`.
 2. **Fetch post body.** If `APIFY_TOKEN` is set, call `lib.ApifyClient.fetch_post(url)`. Otherwise ask the user to paste the text.
 3. **Classify.** Match against the 20 formulas using features:
@@ -78,3 +79,4 @@ Full rule with examples: `../../references/untrusted-content.md`.
 
 - `linkedin-post-writer` — use the extracted template to draft your own
 - `linkedin-humanizer --mode audit` — audit your draft before shipping
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary

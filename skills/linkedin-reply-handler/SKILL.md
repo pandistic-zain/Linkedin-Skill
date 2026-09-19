@@ -42,6 +42,10 @@ Either shape works:
 - A single batch approval card covering every draft
 - On approval, posts all of them (reaction + reply, per comment)
 
+## Activity logging
+
+Call `lib.start_run("linkedin-reply-handler", input_summary=<comment or post URL>)` at the start of either mode below, and `lib.finish_run(...)` at each on-approval step. See `../../references/activity-logging.md`.
+
 ## Steps — single comment
 
 **Voice profile first (all drafts, both modes).** If `../../references/voice-profile.md` has `filled: yes`, load it and match the user's voice fingerprint, hard rules, and CTA/link style throughout. If it is not filled, mention once that `linkedin-humanizer --mode profile` can learn their voice from a few posts, then proceed with the generic voice rules. If `../../references/story-bank.md` has `filled: yes`, load it too and take concrete details (numbers, dates, named projects) from there instead of asking mid-draft. Never invent a figure that is not in it; if the bank has nothing that fits, ask the user or offer `linkedin-interviewer`.
@@ -54,7 +58,7 @@ Either shape works:
 4. **Draft the reply.** Follow the engagement templates in `references/reply-templates.md`. If the counterpart asked a question, answer it directly. If they pushed back, concede then sharpen.
 5. **Humanizer pass.** Scrub 2026 AI vocab by density, cap em dashes (about one per 100 words), fix only machine-flat rhythm and never manufacture sentence-length variance. Canonical rules: `linkedin-humanizer` V3.
 6. **Approval card.** Include thread preview (who said what in last 3 turns), the draft, reaction suggestion, and the parentComment URN we'll send.
-7. **On approval.** Call `lib.publish(kind="reply", draft_text=<approved>, target_url=<comment_url>, post_urn=<urn>, platform_id=<id>, parent_comment=<top_level_comment_urn>, reaction_type=<chosen>)`. The wrapper handles Publora / manual / diy routing.
+7. **On approval.** Call `lib.publish(kind="reply", draft_text=<approved>, target_url=<comment_url>, post_urn=<urn>, platform_id=<id>, parent_comment=<top_level_comment_urn>, reaction_type=<chosen>)`. The wrapper handles Publora / manual / diy routing. Then `lib.finish_run(run_id, "linkedin-reply-handler", "completed", decision="single comment", outcome="published")`. If rejected instead, use `outcome="rejected"`.
 
 ## Steps — whole thread
 
@@ -68,7 +72,7 @@ Same voice-profile-first rule applies. Then:
 6. **Compute the parentComment URN for each draft.** Use `lib.url_parser.build_parent_comment_urn(post_urn, top_level_comment_id)` — always the TOP-level comment's id, never an intermediate reply's id, per the flattening gotcha below. Sweeping many comments at once makes it easy to mix up which id is "top-level" — double check each entry's `top_level_comment_id` before building its URN.
 7. **Humanizer pass.** Same scrub as single-comment mode, run per draft.
 8. **One batch approval card.** Present every surviving draft together: for each, the commenter's name, a short quote of what they said, the drafted reply, the reaction suggestion, and the parentComment URN. Show the filter summary from step 4 above the drafts so the user can sanity-check what got skipped. Wait for one explicit approval — the user can approve all, or call out specific ones to skip or edit.
-9. **On approval, publish each one.** For each approved draft, call `lib.publish(...)` the same way single-comment mode does. React before replying on each comment. If the user approved only some drafts, publish only those.
+9. **On approval, publish each one.** For each approved draft, call `lib.publish(...)` the same way single-comment mode does. React before replying on each comment. If the user approved only some drafts, publish only those. Then `lib.finish_run(run_id, "linkedin-reply-handler", "completed", decision="whole thread", outcome="published")`, noting how many of the surviving drafts were actually approved vs skipped in `meta`.
 
 ## The flattening gotcha (both modes)
 
@@ -159,3 +163,4 @@ Full rule with examples: `../../references/untrusted-content.md`.
 - `linkedin-humanizer` — for aggressive AI-tell scrubbing
 - `linkedin-engager-analytics` — segment who commented by ICP fit instead of drafting replies to them
 - `linkedin-thread-monitor` — track which of your own comments (on other people's posts) earned author replies, the reverse surface from this skill
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary

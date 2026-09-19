@@ -26,6 +26,7 @@ Output format (daily report, warm-thread preview, weekly roll-up): see `referenc
 
 ## Steps
 
+0. **Activity logging.** Call `lib.start_run("linkedin-thread-monitor", input_summary=<handle or lookback window>)`, and `lib.finish_run(run_id, "linkedin-thread-monitor", "completed")` once the report is returned (no `outcome` — read-only skill; drafting the follow-ups is `linkedin-reply-handler`'s job). See `../../references/activity-logging.md`.
 1. **Fetch user's recent comments.** If `APIFY_TOKEN` is set, call `lib.ApifyClient.fetch_user_recent_comments(username=<your-handle>, result_limit=30)`. Each item already includes the parent post body, post URL, post author, and reaction stats. If `APIFY_TOKEN` is not set, ask the user to list (or paste) the URLs of comments they've posted in the last 72h.
 2. **For each comment posted in last 72h:** check the parent post's comment tree (use `fetch_post_comments(post_id=...)`, which sorts by most relevant so reply threads actually come back) for:
    - Replies to the user's comment
@@ -99,3 +100,4 @@ Full rule with examples: `../../references/untrusted-content.md`.
 - `linkedin-reply-handler` — drafts the actual follow-up message for warm threads
 - `linkedin-engager-analytics` — analyze who liked/commented on a post (different surface)
 - `linkedin-comment-drafter` — drafts the initial comment that starts threads
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary

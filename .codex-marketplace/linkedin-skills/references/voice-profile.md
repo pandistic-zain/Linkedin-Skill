@@ -68,8 +68,8 @@ on-brand via a pixel-exact overlay. All optional; leave blank to skip the overla
 
 - Handle to stamp on images: (e.g. @yourname)
 - Brand color (hex): (e.g. #0A66C2)
-- Logo: (path or Pixfaro `logo_id`, if you have one — a path can be uploaded
+- Logo: (path or Pixfaro `logo_id`, if you have one â€” a path can be uploaded
   once with `lib.brand_logo(path)`, which returns the `logo_id` to record here)
 - Overlay position: (e.g. bottom-right)
 - Visual style default: (e.g. minimal flat vector; bold editorial; muted photo)
-- Card style: (quote-card `style` — "brand", "auto", or a fixed palette/font)
+- Card style: (quote-card `style` â€” "brand", "auto", or a fixed palette/font)

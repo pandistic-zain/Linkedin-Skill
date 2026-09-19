@@ -71,6 +71,8 @@ If the user knows what they want the post to earn, start here, then narrow by to
 
 ## Steps
 
+**Activity logging.** Call `lib.start_run("linkedin-post-writer", input_summary=<topic>)` before step 1 and keep `run_id`. See `../../references/activity-logging.md` for the full pattern and outcome vocabulary.
+
 **Voice profile first (all drafts).** If `../../references/voice-profile.md` has `filled: yes`, load it and match the user's voice fingerprint, hard rules, and CTA/link style throughout. If it is not filled, mention once that `linkedin-humanizer --mode profile` can learn their voice from a few posts, then proceed with the generic voice rules. If `../../references/story-bank.md` has `filled: yes`, load it too and take concrete details (numbers, dates, named projects) from there instead of asking mid-draft. Never invent a figure that is not in it; if the bank has nothing that fits, ask the user or offer `linkedin-interviewer`.
 
 **Founder mode (when the writer is a founder).** Before picking a formula, open `../../references/founder-topics.md` and offer a founder **angle** (A1-A10) that fits their goal. The angle picks the *territory* (reprice the category, the scarce-shots math, the delegation line, and so on); several angles pin the formula for you (A9 uses F17, A10 uses F18+F20). Founder angles compound trust with a narrow audience of investors, hires, and design partners rather than chasing broad reach. Fill the angle's bracketed slots with the founder's real numbers, then continue from step 3.
@@ -89,7 +91,7 @@ If the user knows what they want the post to earn, start here, then narrow by to
 5. **Run audit.** Optionally invoke `linkedin-humanizer --mode audit` for algorithm + voice checks before showing to user.
 6. **Optional illustration.** If the post would land better with a visual (or the user asks), offer one: draft an image and generate it with `lib.illustrate(prompt, kind="wide")`, pulling brand handle/color from Voice & Brand Profile §6 for the overlay. Show the returned `url` + `cost` in the approval card and attach it via `media_urls` on publish. For a **multi-image grid** (2-10 images in one post) use `lib.illustrate_set([p1, p2, ...], kind="wide", overlay=brand)` and pass every `url` in `media_urls=[...]`. For a **quote-card of the hook**, skip the model and typeset it: `lib.quote_card("<hook line>", handle="@handle", style="brand")` — crisp text, same `url` flow. Full workflow: `../linkedin-humanizer/sub-skills/illustration.md`. No Pixfaro key -> it drafts the prompt for the user to generate manually.
 7. **Approval card.** Show: formula used, full draft, char count, suggested posting window (Tue/Wed/Thu 7:30-9:00 AM local), reaction targets from likely commenters, and the illustration (if any).
-8. **On approval.** Call `lib.publish(kind="post", draft_text=<approved>, target_url="https://www.linkedin.com/post/new/", platforms=[{"platform":"linkedin","platformId":<id>}], scheduled_time=<iso_or_None>, media_urls=<list_or_None>)`. The wrapper handles Publora / manual / diy routing. If the user reconsiders after approving, call `lib.unpublish(post_group_id=<postGroupId from the response>)` to cancel it before it goes out. On the publora tier the post is already queued, so the dashboard is otherwise the only way back.
+8. **On approval.** Call `lib.publish(kind="post", draft_text=<approved>, target_url="https://www.linkedin.com/post/new/", platforms=[{"platform":"linkedin","platformId":<id>}], scheduled_time=<iso_or_None>, media_urls=<list_or_None>)`. The wrapper handles Publora / manual / diy routing. If the user reconsiders after approving, call `lib.unpublish(post_group_id=<postGroupId from the response>)` to cancel it before it goes out. On the publora tier the post is already queued, so the dashboard is otherwise the only way back. Then `lib.finish_run(run_id, "linkedin-post-writer", "completed", decision=<formula code>, outcome="published")`. If the user rejects the draft instead, call `lib.finish_run(run_id, "linkedin-post-writer", "completed", decision=<formula code>, outcome="rejected")`.
 
 ## Hard rules (from user feedback)
 
@@ -120,6 +122,7 @@ Global voice rules: see root `SKILL.md` §Voice rules. Additional skill-specific
 - `../../references/founder-topics.md` — founders-edition library of 10 founder angles (A1-A10) with fill-in templates
 - `../../references/algorithm-heuristics.md` — 2026 posting rules (timing, format, length)
 - `references/humanizer-checklist.md` — the full scrub list
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary
 
 ## Related skills
 

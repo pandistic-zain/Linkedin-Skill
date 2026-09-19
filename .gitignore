@@ -24,3 +24,6 @@ testing/
 .claude/skills/
 references/voice-profile.md
 references/story-bank.md
+
+# separate project/repo, not part of the skills bundle
+dashboard/

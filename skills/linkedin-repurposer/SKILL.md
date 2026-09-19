@@ -20,6 +20,8 @@ Not for a blank-page draft (use `linkedin-post-writer`) and not for reviewing a 
 
 ## How it works
 
+**Activity logging.** Call `lib.start_run("linkedin-repurposer", input_summary=<source description>)` before step 1 and keep `run_id`. See `../../references/activity-logging.md`.
+
 **Voice profile first (all drafts).** If `../../references/voice-profile.md` has `filled: yes`, load it and match the user's voice fingerprint, hard rules, and CTA/link style throughout. If it is not filled, mention once that `linkedin-humanizer --mode profile` can learn their voice from a few posts, then proceed with the generic voice rules. If `../../references/story-bank.md` has `filled: yes`, load it too and take concrete details (numbers, dates, named projects) from there instead of asking mid-draft. Never invent a figure that is not in it; if the bank has nothing that fits, ask the user or offer `linkedin-interviewer`.
 
 1. **Take the source.** Any format: a tweet or thread, a video or script, a blog paragraph, a caption, a transcript, a bullet list, a link to read. Ask for the source and the goal (comments / reposts / likes / saves) if not given.
@@ -30,7 +32,7 @@ Not for a blank-page draft (use `linkedin-post-writer`) and not for reviewing a 
 6. **Fix links and artifacts.** Move any external link to the first comment (in-body links suppress reach). Strip off-platform artifacts: hashtag walls, "link in bio", "smash subscribe", X @-handles, "as I tweeted" throat-clearing. 0 to 2 hashtags at the end.
 7. **Humanizer pass.** Run the scrub: 2026 AI vocab by density, em dashes above the cap (about one per 100 words), stacked rule-of-three triads, generic openers and reveal bridges. Keep the user's real numbers and named entities from the source.
 8. **Approval card.** Show: source -> LinkedIn mapping (what became what), formula used, char count, suggested posting window (Tue/Wed/Thu 7:30 to 9:00 AM local), the link-in-first-comment note.
-9. **On approval.** Publish via `lib.publish(kind="post", draft_text=<approved>, target_url="https://www.linkedin.com/post/new/", platforms=[{"platform":"linkedin","platformId":<id>}], scheduled_time=<iso_or_None>)`. The wrapper handles Publora / manual / diy routing. If the user reconsiders after approving, call `lib.unpublish(post_group_id=<postGroupId from the response>)` to cancel it before it goes out. On the publora tier the post is already queued, so the dashboard is otherwise the only way back.
+9. **On approval.** Publish via `lib.publish(kind="post", draft_text=<approved>, target_url="https://www.linkedin.com/post/new/", platforms=[{"platform":"linkedin","platformId":<id>}], scheduled_time=<iso_or_None>)`. The wrapper handles Publora / manual / diy routing. If the user reconsiders after approving, call `lib.unpublish(post_group_id=<postGroupId from the response>)` to cancel it before it goes out. On the publora tier the post is already queued, so the dashboard is otherwise the only way back. Then `lib.finish_run(run_id, "linkedin-repurposer", "completed", decision=<formula used>, outcome="published")`. If rejected instead, use `outcome="rejected"`.
 
 ## Native-fit rules (source -> LinkedIn)
 
@@ -72,4 +74,5 @@ Global voice rules: see root `SKILL.md` §Voice rules. Additional skill-specific
 
 - `linkedin-post-writer` - write a fresh post from scratch
 - `linkedin-humanizer` - scrub AI tells, plus `--mode audit` to review the result
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary
 - `linkedin-hook-extractor` - reverse-engineer a hook from a post you admire

@@ -8,6 +8,7 @@ re-exported here.
 from ._env import load_env
 from .url_parser import parse_linkedin_url
 from .approval import render_approval_card
+from .skill_run_logger import start_run, finish_run
 
 load_env()
 
@@ -77,4 +78,6 @@ __all__ = [
     "quote_card",
     "available_templates",
     "brand_logo",
+    "start_run",
+    "finish_run",
 ]

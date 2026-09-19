@@ -31,6 +31,7 @@ A structured audit + rewrite in this shape:
 
 ## Steps
 
+0. **Activity logging.** Call `lib.start_run("linkedin-profile-optimizer", input_summary=<goal>)`, and once the rewrite is delivered, `lib.finish_run(run_id, "linkedin-profile-optimizer", "completed", outcome="approved" if the user keeps the copy else "rejected")`. See `../../references/activity-logging.md`.
 1. **Intake.** Collect profile state + goal. Flag missing sections.
 2. **Score each of 9 sections** against the checklist (see references/).
 3. **Rewrite headline** using `[What You Do] | [Who You Help] [Achieve What Result]` — fit all 220 chars.
@@ -88,3 +89,4 @@ Global voice rules: see root `SKILL.md` §Voice rules. Additional skill-specific
 - `linkedin-content-planner` — post pillars should echo the profile's headline/About thesis
 - `linkedin-post-writer` — Featured section rotates quarterly; pin your flagship post
 - `linkedin-humanizer` — scrub profile copy for the same AI tells we scrub from posts
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary

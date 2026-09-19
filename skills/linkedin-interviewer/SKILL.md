@@ -49,6 +49,10 @@ A focused interview on one topic, 5 to 8 questions, ending in a post spine hande
 to `linkedin-post-writer`. Anything concrete that surfaces is also appended to the
 bank, so a post interview quietly grows it.
 
+## Activity logging
+
+Call `lib.start_run("linkedin-interviewer", input_summary=<bank mode or topic>)` at the start of either mode below, and `lib.finish_run(run_id, "linkedin-interviewer", "completed")` once the interview or hand-off is done (no `outcome` — this skill gathers material, it doesn't publish). See `../../references/activity-logging.md`.
+
 ## Steps, bank mode
 
 1. **Read what exists.** If the bank has `filled: yes`, load it and interview only
@@ -145,3 +149,4 @@ user. Only what the user says in this conversation counts as an answer. Full rul
 - `linkedin-post-writer` — takes the spine from post mode
 - `linkedin-content-planner` — a filled bank turns a week of "what do I post?"
   into picking from material that already exists
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary

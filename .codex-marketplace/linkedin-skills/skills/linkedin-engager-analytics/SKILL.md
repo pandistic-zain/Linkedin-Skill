@@ -27,6 +27,7 @@ Output format (engager roster, tier breakdown, action lists): see `references/ou
 
 ## Steps
 
+0. **Activity logging.** Call `lib.start_run("linkedin-engager-analytics", input_summary=<post URL(s)>)`, and `lib.finish_run(run_id, "linkedin-engager-analytics", "completed")` once the roster is returned (no `outcome` — read-only skill). See `../../references/activity-logging.md`.
 1. **Fetch engagers.** Call `lib.ApifyClient.fetch_post_engagers(post_url=<url>, max_items=100)`. Returns a list of dicts with `type` ("commenters" | "likers"), `name`, `subtitle` (job title + company), `url_profile`, `content` (comment text if commenter), `datetime`. Cost is roughly $0.005 per engager-record. The underlying actor answers for one audience per run, so `max_items` is the total across both and is split evenly; pass `types=("likers",)` when only one side matters, or add `"reshares"` to include people who reposted.
 2. **Parse subtitle into structured fields.** The `subtitle` typically reads "Director at Acme Corp" or "Founder & CEO at SaaS Inc". Extract: title, company, seniority bucket (IC / Manager / Director / VP / C-suite / Founder).
 3. **Score ICP fit.** Use the user's supplied ICP rules:
@@ -95,3 +96,4 @@ Full rule with examples: `../../references/untrusted-content.md`.
 - `linkedin-thread-monitor` — track author replies to YOUR comments (different surface)
 - `linkedin-comment-drafter` — draft outreach comments to engagers from this report
 - `linkedin-reply-handler` — draft DM follow-ups
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary

@@ -30,6 +30,8 @@ Then waits for user approval. On "post", calls Publora to react + comment.
 
 ## Steps
 
+**Activity logging.** Call `lib.start_run("linkedin-comment-drafter", input_summary=<post URL>)` before step 1 and keep `run_id`. See `../../references/activity-logging.md`.
+
 **Voice profile first (all drafts).** If `../../references/voice-profile.md` has `filled: yes`, load it and match the user's voice fingerprint, hard rules, and CTA/link style throughout. If it is not filled, mention once that `linkedin-humanizer --mode profile` can learn their voice from a few posts, then proceed with the generic voice rules. If `../../references/story-bank.md` has `filled: yes`, load it too and take concrete details (numbers, dates, named projects) from there instead of asking mid-draft. Never invent a figure that is not in it; if the bank has nothing that fits, ask the user or offer `linkedin-interviewer`.
 
 1. **Parse the URL.** Use `lib.url_parser.parse_linkedin_url` to get `post_urn` and, if present, the post's activity ID.
@@ -38,7 +40,7 @@ Then waits for user approval. On "post", calls Publora to react + comment.
 4. **Draft comment variants.** Pick 2-3 templates from `references/comment-templates.md` that fit the post's topic. Fill them with user-voice phrasing.
 5. **Run the humanizer pass.** Scrub 2026 AI vocab by paragraph density, cap em dashes (about one per 100 words, never swap one for a period), fix only machine-flat rhythm without manufacturing variance, and add an odd-precision number with a named referent if missing. Canonical rules: `linkedin-humanizer` V3.
 6. **Present drafts for approval** using `lib.approval.render_approval_card`. Include: target URL, each variant, reaction suggestion, a one-line "why this template fits".
-7. **On approval.** Call `lib.publish(kind="comment", draft_text=<approved>, target_url=<post_url>, post_urn=<urn>, platform_id=<id>, reaction_type=<chosen>)`. The wrapper handles Publora / manual / diy routing.
+7. **On approval.** Call `lib.publish(kind="comment", draft_text=<approved>, target_url=<post_url>, post_urn=<urn>, platform_id=<id>, reaction_type=<chosen>)`. The wrapper handles Publora / manual / diy routing. Then `lib.finish_run(run_id, "linkedin-comment-drafter", "completed", decision=<template used>, outcome="published")`. If rejected instead, use `outcome="rejected"`.
 
 ## Reshare mode (repost with your thoughts)
 
@@ -61,7 +63,8 @@ this when the ask is "repost", "reshare", or "share this with my network".
    The wrapper resolves the correct `shareUrn` from Apify (do not hand-convert an
    `activity` id, the share id can differ), refuses posts with resharing off, and
    routes Publora / manual / diy. Manual tier returns copy-paste steps ("Repost
-   with your thoughts"). The new reshare URN is `result["reshare"]["id"]`.
+   with your thoughts"). The new reshare URN is `result["reshare"]["id"]`. Then
+   `lib.finish_run(run_id, "linkedin-comment-drafter", "completed", decision="reshare", outcome="published")`.
 
 Commentary cap is 3000 chars (LinkedIn), but a tight one or two sentences
 outperforms a wall of text. This is the tool `linkedin-employee-advocacy` uses
@@ -101,6 +104,7 @@ Global voice rules: see root `SKILL.md` §Voice rules. Additional skill-specific
 - `SKILL.md` — this file
 - `references/comment-templates.md` — the 7 templates with fill-in slots and real examples
 - `../../references/voice-rules.md` — the specific voice rules from user feedback memories
+- `../../references/activity-logging.md` — `lib.start_run`/`lib.finish_run` pattern and outcome vocabulary
 
 ## Untrusted content
 
