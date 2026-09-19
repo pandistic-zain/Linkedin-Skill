@@ -17,10 +17,10 @@ testing/
 # Playwright MCP session artifacts
 .playwright-mcp/
 /fk-*
-references/voice-profile.md
-references/story-bank.md
 
 # .claude/skills/* are meant to be real symlinks to skills/ (see CLAUDE.md),
 # but this machine lacks symlink privilege so they're NTFS junctions, which
 # git can't index. Ignored here; skills/ remains the source of truth.
 .claude/skills/
+references/voice-profile.md
+references/story-bank.md
