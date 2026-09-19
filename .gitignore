@@ -17,8 +17,6 @@ testing/
 # Playwright MCP session artifacts
 .playwright-mcp/
 /fk-*
-references/voice-profile.md
-references/story-bank.md
 
 # .claude/skills/* are meant to be real symlinks to skills/ (see CLAUDE.md),
 # but this machine lacks symlink privilege so they're NTFS junctions, which
