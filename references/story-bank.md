@@ -42,7 +42,14 @@ strongest signal that a human wrote the post.
 Good: "cut deploy time from 22 minutes to 9, team of four, Q2 2025".
 Useless: "improved efficiency significantly".
 
-- (number, what it measures, when, who or what it belongs to)
+- Quran Horizon live safety monitoring: browser-native Web Speech API shipped
+  2026-07-01 (commit 318b0e3), replaced by self-hosted server-side streaming
+  Whisper 2026-07-02 (commit aaa362d). One day between them.
+- That swap took a day only because the self-hosted Whisper already existed:
+  post-class transcription (backend/app/services/asr.py, faster-whisper) ran on it
+  from the project's first commit (c0b34fc).
+- Quran Horizon has never used a paid hosted STT API - no OpenAI, Deepgram,
+  AssemblyAI, Azure or Google Speech appears anywhere in the repo history.
 
 ## 3. Shipped
 
@@ -72,6 +79,11 @@ unlocked. A draft can use the project without a number, but it lands harder with
 The moments where you changed your mind or the plan changed under you. These carry
 posts better than successes do, and they are the hardest to invent.
 
+- Live safety monitoring: the documented reason for leaving the browser's Web
+  Speech API was not cost and not accuracy. It was reliability and control - the
+  API only works in Chromium and the person being monitored can disable it
+  client-side, which defeats a safety feature. Privacy (audio never leaving the
+  server) was a real but secondary benefit.
 - Building the trading system around a hard rule - "LLM agents produce opinions,
   deterministic Python produces orders" - instead of letting an agent place trades.
   What changed: the interesting part of an agent system is the boundary you refuse

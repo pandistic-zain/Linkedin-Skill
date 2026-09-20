@@ -75,6 +75,20 @@ If the user knows what they want the post to earn, start here, then narrow by to
 
 **Voice profile first (all drafts).** If `../../references/voice-profile.md` has `filled: yes`, load it and match the user's voice fingerprint, hard rules, and CTA/link style throughout. If it is not filled, mention once that `linkedin-humanizer --mode profile` can learn their voice from a few posts, then proceed with the generic voice rules. If `../../references/story-bank.md` has `filled: yes`, load it too and take concrete details (numbers, dates, named projects) from there instead of asking mid-draft. Never invent a figure that is not in it; if the bank has nothing that fits, ask the user or offer `linkedin-interviewer`.
 
+**Evidence log (build claims).** Before asserting what was built, when, or in what order, read `../../references/evidence-log.md` if it exists — dated commits from the user's own repositories, refreshed by `scripts/mine_evidence.py`. Any claim about shipping, sequencing or timing must trace to a line there or to the Story Bank. If neither has it, ask; never estimate a date or infer a build history that reads plausibly. A well-formed false claim is the worst output this skill can produce.
+
+**Client and NDA guard (evidence log).** The evidence log is drawn from private
+repositories, much of it client work. It is INPUT, never output. A draft may use
+the shape of the work — the problem, the tradeoff, the decision, the date — and
+must never carry a client's name, their product name, their internal service or
+repo names, their metrics, or any detail that identifies them to someone who knows
+the industry. "A fintech client" is fine; a name is not, and neither is a
+description so specific it names them anyway. The Story Bank's "Names you can use"
+and "Off limits" sections are authoritative; when the evidence log and the Story
+Bank disagree, the Story Bank wins. If a post only works with an identifying
+detail in it, do not write the post — ask whether the client has given permission.
+
+
 **Founder mode (when the writer is a founder).** Before picking a formula, open `../../references/founder-topics.md` and offer a founder **angle** (A1-A10) that fits their goal. The angle picks the *territory* (reprice the category, the scarce-shots math, the delegation line, and so on); several angles pin the formula for you (A9 uses F17, A10 uses F18+F20). Founder angles compound trust with a narrow audience of investors, hires, and design partners rather than chasing broad reach. Fill the angle's bracketed slots with the founder's real numbers, then continue from step 3.
 
 1. **Gather inputs.** Topic, angle, draft ideas if the user has them, target audience (founders / operators / marketers), desired length (short 300-500 / medium 900-1300 / long 1500-1900 chars).

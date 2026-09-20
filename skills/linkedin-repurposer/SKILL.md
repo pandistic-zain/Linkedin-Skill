@@ -24,6 +24,20 @@ Not for a blank-page draft (use `linkedin-post-writer`) and not for reviewing a 
 
 **Voice profile first (all drafts).** If `../../references/voice-profile.md` has `filled: yes`, load it and match the user's voice fingerprint, hard rules, and CTA/link style throughout. If it is not filled, mention once that `linkedin-humanizer --mode profile` can learn their voice from a few posts, then proceed with the generic voice rules. If `../../references/story-bank.md` has `filled: yes`, load it too and take concrete details (numbers, dates, named projects) from there instead of asking mid-draft. Never invent a figure that is not in it; if the bank has nothing that fits, ask the user or offer `linkedin-interviewer`.
 
+**Evidence log (build claims).** Before asserting what was built, when, or in what order, read `../../references/evidence-log.md` if it exists — dated commits from the user's own repositories, refreshed by `scripts/mine_evidence.py`. Any claim about shipping, sequencing or timing must trace to a line there or to the Story Bank. If neither has it, ask; never estimate a date or infer a build history that reads plausibly. A well-formed false claim is the worst output this skill can produce.
+
+**Client and NDA guard (evidence log).** The evidence log is drawn from private
+repositories, much of it client work. It is INPUT, never output. A draft may use
+the shape of the work — the problem, the tradeoff, the decision, the date — and
+must never carry a client's name, their product name, their internal service or
+repo names, their metrics, or any detail that identifies them to someone who knows
+the industry. "A fintech client" is fine; a name is not, and neither is a
+description so specific it names them anyway. The Story Bank's "Names you can use"
+and "Off limits" sections are authoritative; when the evidence log and the Story
+Bank disagree, the Story Bank wins. If a post only works with an identifying
+detail in it, do not write the post — ask whether the client has given permission.
+
+
 1. **Take the source.** Any format: a tweet or thread, a video or script, a blog paragraph, a caption, a transcript, a bullet list, a link to read. Ask for the source and the goal (comments / reposts / likes / saves) if not given.
 2. **Extract the spine.** Strip the source platform's shell and pull out the one claim, story, or number worth keeping. Repurposing fails when it keeps the words instead of the point.
 3. **Re-hook for LinkedIn.** The hook must land in the first 210 characters, before the "...see more" fold. The source's hook rarely survives; write a new first line using one of the 20 formulas in `../../references/hook-formulas.md`, picked by the goal.

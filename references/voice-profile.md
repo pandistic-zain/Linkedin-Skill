@@ -85,10 +85,13 @@ writing skills mirror the rhythm and word choice of these, not a generic voice.
 Used by the illustration step (`lib.illustrate`) to keep every generated image
 on-brand via a pixel-exact overlay. All optional; leave blank to skip the overlay.
 
-- Handle to stamp on images: (e.g. @yourname)
-- Brand color (hex): (e.g. #0A66C2)
+- Handle to stamp on images: webbyzain.online
+- Brand color (hex): #D71920 (crimson, from webbyzain.online)
 - Logo: (path or Pixfaro `logo_id`, if you have one — a path can be uploaded
   once with `lib.brand_logo(path)`, which returns the `logo_id` to record here)
-- Overlay position: (e.g. bottom-right)
-- Visual style default: (e.g. minimal flat vector; bold editorial; muted photo)
-- Card style: (quote-card `style` — "brand", "auto", or a fixed palette/font)
+- Overlay position: bottom-right
+- Visual style default: bold editorial on near-black (#08080A) with paper (#F7F7F3)
+  text and crimson (#D71920) as a single accent - never a crimson fill. Flat,
+  geometric, no stock-photo people, no glowing-neon-AI look. Secondary: #123C69.
+  Type reference: Syne for display, Manrope for body, DM Mono for labels.
+- Card style: brand

@@ -6,7 +6,7 @@
 $envFile = Join-Path $PSScriptRoot '.env'
 if (-not (Test-Path $envFile)) { Write-Error "No .env found next to this script."; exit 1 }
 
-$wanted = @('PUBLORA_API_KEY','LINKEDIN_PLATFORM_ID','APIFY_TOKEN','PIXFARO_TOKEN')
+$wanted = @('PUBLORA_API_KEY','LINKEDIN_PLATFORM_ID','APIFY_TOKEN','PIXFARO_TOKEN','GITHUB_TOKEN')
 $set = 0
 
 Get-Content $envFile | ForEach-Object {
