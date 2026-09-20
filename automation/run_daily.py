@@ -24,6 +24,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DRAFTS = ROOT / "drafts"
 LOG = ROOT / "automation" / "run.log"
+RUN_ID = ""  # set at the top of main(); module-level default for report() calls before that
+
+sys.path.insert(0, str(ROOT))
+try:
+    from lib.skill_run_logger import emit as _emit  # type: ignore
+except ImportError:
+    def _emit(event_type: str, payload: dict) -> None:  # type: ignore
+        pass  # dashboard logging is optional; never hard-depend on it
 
 
 def load_env() -> None:
@@ -48,11 +56,16 @@ def log(msg: str) -> None:
 
 
 def report(event: dict) -> None:
-    """Best-effort dashboard ping. Never blocks the run."""
+    """Best-effort dashboard ping. Never blocks the run.
+
+    Adds "id" automatically from RUN_ID if the caller didn't set one, so
+    every skill-run event upserts idempotently on a same-day rerun instead
+    of being rejected by the ingest route (which requires "id")."""
     url = os.getenv("DASHBOARD_EVENTS_URL")
     secret = os.getenv("EVENTS_INGEST_SECRET")
     if not url or not secret:
         return
+    event = {"id": RUN_ID, **event}
     try:
         req = urllib.request.Request(
             url.rstrip("/") + "/api/events",
@@ -61,7 +74,7 @@ def report(event: dict) -> None:
                      "Authorization": f"Bearer {secret}"},
             method="POST",
         )
-        urllib.request.urlopen(req, timeout=10).read()
+        urllib.request.urlopen(req, timeout=3).read()
     except Exception as e:
         log(f"  dashboard ping failed ({type(e).__name__}) - continuing")
 
@@ -267,38 +280,63 @@ def _make_image(brief: str):
 
 
 def main() -> int:
+    global RUN_ID
     load_env()
     DRAFTS.mkdir(parents=True, exist_ok=True)
     today = datetime.now().strftime("%Y-%m-%d")
-    started = datetime.now().isoformat()
+    # Deterministic per-day id: a same-day rerun (e.g. after a fixed error)
+    # upserts the same Run/SkillRun rows instead of duplicating them.
+    RUN_ID = f"daily-{today}"
+    started = datetime.now().astimezone().isoformat()
     log(f"=== daily run {today} ===")
+    _emit("run_started", {"runId": RUN_ID, "localDate": today,
+                           "autoPublish": os.getenv("AUTOPUBLISH", "false").strip().lower()
+                           in {"1", "true", "yes"}, "startedAt": started})
 
     # 1. evidence
     log("step 1/4  refreshing evidence log")
     r = subprocess.run([sys.executable, str(ROOT / "scripts" / "mine_evidence.py"),
                         "--days", "30"], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", cwd=ROOT)
+    step1_finished = datetime.now().astimezone().isoformat()
     if r.returncode != 0:
         log(f"  FAILED: {r.stderr.strip()[:300]}")
+        _emit("step_finished", {"runId": RUN_ID, "stepKey": "evidence", "status": "failed",
+                                 "startedAt": started, "finishedAt": step1_finished,
+                                 "errorText": r.stderr.strip()[:2000]})
+        _emit("run_finished", {"runId": RUN_ID, "status": "failed",
+                                "finishedAt": step1_finished, "errorText": "evidence refresh failed"})
         report({"skill": "pipeline", "startedAt": started, "status": "failed",
                 "errorText": "evidence refresh failed"})
         return 1
     log("  ok")
+    _emit("step_finished", {"runId": RUN_ID, "stepKey": "evidence", "status": "completed",
+                             "startedAt": started, "finishedAt": step1_finished})
 
     # 2. draft
     cb = claude_bin()
     if not cb:
         log("  FAILED: Claude Code CLI not found on PATH. Install it, or run "
             "`npm i -g @anthropic-ai/claude-code`.")
+        _emit("run_finished", {"runId": RUN_ID, "status": "failed",
+                                "finishedAt": datetime.now().astimezone().isoformat(),
+                                "errorText": "claude CLI not found"})
         report({"skill": "pipeline", "startedAt": started, "status": "failed",
                 "errorText": "claude CLI not found"})
         return 1
 
     log("step 2/4  drafting with Claude Code")
+    draft_started = datetime.now().astimezone().isoformat()
     r = subprocess.run([cb, "-p", PROMPT], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", cwd=ROOT, timeout=900)
+    draft_finished = datetime.now().astimezone().isoformat()
     if r.returncode != 0 or not r.stdout.strip():
         log(f"  FAILED: {(r.stderr or 'empty output').strip()[:300]}")
+        _emit("step_finished", {"runId": RUN_ID, "stepKey": "draft", "status": "failed",
+                                 "startedAt": draft_started, "finishedAt": draft_finished,
+                                 "errorText": (r.stderr or "empty output").strip()[:2000]})
+        _emit("run_finished", {"runId": RUN_ID, "status": "failed",
+                                "finishedAt": draft_finished, "errorText": "draft failed"})
         report({"skill": "linkedin-post-writer", "startedAt": started,
                 "status": "failed", "errorText": "draft failed"})
         return 1
@@ -311,21 +349,32 @@ def main() -> int:
 
     if not body or "no draft" in body.lower()[:200]:
         log("step 3/4  skill stood aside - no post worth making today")
+        _emit("step_finished", {"runId": RUN_ID, "stepKey": "draft", "status": "completed",
+                                 "startedAt": draft_started, "finishedAt": draft_finished})
+        _emit("run_finished", {"runId": RUN_ID, "status": "completed",
+                                "verdict": "abandoned", "finishedAt": draft_finished})
         report({"skill": "linkedin-post-writer", "startedAt": started,
-                "finishedAt": datetime.now().isoformat(), "status": "completed",
+                "finishedAt": datetime.now().astimezone().isoformat(), "status": "completed",
                 "decision": "stood aside", "outcome": "abandoned"})
         return 0
 
     path = DRAFTS / f"{today}.md"
     path.write_text(f"# Draft {today}\n\n{body}\n\n---\n{note}\n", encoding="utf-8")
     log(f"step 3/4  draft saved: {path.name} ({len(body)} chars)")
+    _emit("step_finished", {"runId": RUN_ID, "stepKey": "draft", "status": "completed",
+                             "startedAt": draft_started, "finishedAt": draft_finished})
+    _emit("draft_saved", {"runId": RUN_ID, "contentMd": body, "noteMd": note,
+                           "localPath": f"drafts/{today}.md", "charCount": len(body)})
 
     # 3. publish or queue
     auto = os.getenv("AUTOPUBLISH", "false").strip().lower() in {"1", "true", "yes"}
     if not auto:
         log("step 4/4  AUTOPUBLISH is off - queued for your approval")
+        _emit("run_finished", {"runId": RUN_ID, "status": "completed",
+                                "verdict": "awaiting approval",
+                                "finishedAt": datetime.now().astimezone().isoformat()})
         report({"skill": "linkedin-post-writer", "startedAt": started,
-                "finishedAt": datetime.now().isoformat(), "status": "completed",
+                "finishedAt": datetime.now().astimezone().isoformat(), "status": "completed",
                 "decision": note[:200], "outcome": "awaiting approval",
                 "inputSummary": f"drafts/{today}.md"})
         return 0
@@ -339,12 +388,18 @@ def main() -> int:
         log(f"  motif: {chosen or 'auto (post did not name one)'}")
         url = _make_card(body.splitlines()[0], chosen)
         media = [url] if url else None
+        if url:
+            _emit("media_generated", {"runId": RUN_ID, "kind": "quote_card", "url": url,
+                                       "status": "generated"})
     else:
         brief = _image_brief(note)
         if brief:
             log(f"  image brief: {brief[:90]}")
             url = _make_image(brief)
             media = [url] if url else None
+            if url:
+                _emit("media_generated", {"runId": RUN_ID, "kind": "illustration", "url": url,
+                                           "status": "generated", "prompt": brief[:500]})
         else:
             log("  no image brief - posting text only")
 
@@ -352,6 +407,9 @@ def main() -> int:
     if problem:
         log(f"step 4/4  REFUSING to publish - {problem}")
         log(f"  draft kept at {path} for you to review")
+        _emit("run_finished", {"runId": RUN_ID, "status": "failed",
+                                "finishedAt": datetime.now().astimezone().isoformat(),
+                                "errorText": f"publish blocked: {problem}"})
         report({"skill": "linkedin-post-writer", "startedAt": started,
                 "status": "failed", "outcome": "blocked",
                 "errorText": f"publish blocked: {problem}"})
@@ -364,8 +422,11 @@ def main() -> int:
     if datetime.now().hour >= cutoff:
         log(f"step 4/4  too late to publish (after {cutoff}:00) - draft kept for tomorrow")
         log(f"  post it by hand with: python post_now.py")
+        _emit("run_finished", {"runId": RUN_ID, "status": "completed",
+                                "verdict": "held - ran too late",
+                                "finishedAt": datetime.now().astimezone().isoformat()})
         report({"skill": "linkedin-post-writer", "startedAt": started,
-                "finishedAt": datetime.now().isoformat(), "status": "completed",
+                "finishedAt": datetime.now().astimezone().isoformat(), "status": "completed",
                 "decision": note[:200], "outcome": "held - ran too late",
                 "inputSummary": f"drafts/{today}.md"})
         return 0
@@ -384,12 +445,24 @@ def main() -> int:
         if isinstance(res, dict) and res.get("status") == "draft":
             log("  WARNING: Publora still reports status=draft - not published")
         log(f"  published: {str(res)[:200]}")
+        if isinstance(res, dict):
+            _emit("publish_result", {
+                "runId": RUN_ID, "status": res.get("status") or "published",
+                "postGroupId": res.get("postGroupId"), "scheduledFor": res.get("scheduledTime"),
+                "providerRaw": res,
+            })
+        _emit("run_finished", {"runId": RUN_ID, "status": "completed",
+                                "verdict": "published",
+                                "finishedAt": datetime.now().astimezone().isoformat()})
         report({"skill": "linkedin-post-writer", "startedAt": started,
-                "finishedAt": datetime.now().isoformat(), "status": "completed",
+                "finishedAt": datetime.now().astimezone().isoformat(), "status": "completed",
                 "decision": note[:200], "outcome": "published"})
     except Exception as e:
         log(f"  FAILED: {type(e).__name__}: {e}")
         log(f"  draft is safe at {path}")
+        _emit("run_finished", {"runId": RUN_ID, "status": "failed",
+                                "finishedAt": datetime.now().astimezone().isoformat(),
+                                "errorText": f"publish: {type(e).__name__}"})
         report({"skill": "linkedin-post-writer", "startedAt": started,
                 "status": "failed", "errorText": f"publish: {type(e).__name__}"})
         return 1
