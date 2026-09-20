@@ -31,8 +31,7 @@ if (-not (Test-Path $executorScript)) { throw "dashboard_executor.py not found a
 
 $executorAction  = New-ScheduledTaskAction -Execute $python -Argument "`"$executorScript`"" -WorkingDirectory $repo
 $executorTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
-    -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration ([TimeSpan]::MaxValue)
-$executorTrigger.ExecutionTimeLimit = (New-TimeSpan -Minutes 4)
+    -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
 $executorSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopIfGoingOnBatteries `
     -AllowStartIfOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 4)
 
@@ -46,7 +45,7 @@ if (-not (Test-Path $engagementScript)) { throw "run_engagement.py not found at 
 
 $engagementAction  = New-ScheduledTaskAction -Execute $python -Argument "`"$engagementScript`"" -WorkingDirectory $repo
 $engagementTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
-    -RepetitionInterval (New-TimeSpan -Hours 4) -RepetitionDuration ([TimeSpan]::MaxValue)
+    -RepetitionInterval (New-TimeSpan -Hours 4) -RepetitionDuration (New-TimeSpan -Days 3650)
 $engagementSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopIfGoingOnBatteries `
     -AllowStartIfOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
 
