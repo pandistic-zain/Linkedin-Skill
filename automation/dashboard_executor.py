@@ -10,6 +10,8 @@ Publora key), claims pending commands and actually executes them:
   reject          - no-op here; the reject is already recorded as a
                     DraftAction by the dashboard itself
   run_now         - run automation/run_daily.py immediately
+  approve_reply   - post an approved reply via PubloraClient.create_comment
+  reject_reply    - no-op here; already recorded on the dashboard
 
 Run manually (`python automation/dashboard_executor.py`) or on a
 schedule (e.g. every 5 minutes) alongside the daily task. Safe to run
@@ -94,6 +96,28 @@ def run_approve_publish(payload: dict) -> tuple[str, str]:
     return "done", f"published: {str(res)[:200]}"
 
 
+def run_approve_reply(payload: dict) -> tuple[str, str]:
+    """Posts an approved reply. Needs postUrn (not just the human-facing
+    postUrl) — run_engagement.py resolves and stores it at draft time so
+    the executor never has to re-resolve a URL to a URN itself."""
+    post_urn = payload.get("postUrn")
+    draft_text = payload.get("draftText")
+    if not post_urn or not draft_text:
+        return "failed", "missing postUrn or draftText in command payload"
+
+    sys.path.insert(0, str(ROOT))
+    from lib import PubloraClient  # type: ignore
+
+    client = PubloraClient()
+    res = client.create_comment(
+        post_urn=post_urn,
+        message=draft_text,
+        platform_id=os.environ["LINKEDIN_PLATFORM_ID"],
+        parent_comment=payload.get("parentComment"),
+    )
+    return "done", f"reply posted: {str(res)[:200]}"
+
+
 def run_now(payload: dict) -> tuple[str, str]:
     r = subprocess.run(
         [sys.executable, str(ROOT / "automation" / "run_daily.py")],
@@ -107,7 +131,9 @@ def run_now(payload: dict) -> tuple[str, str]:
 HANDLERS = {
     "approve_publish": run_approve_publish,
     "run_now": run_now,
+    "approve_reply": run_approve_reply,
     "reject": lambda payload: ("done", "no local action needed — recorded on the dashboard"),
+    "reject_reply": lambda payload: ("done", "no local action needed — recorded on the dashboard"),
 }
 
 
