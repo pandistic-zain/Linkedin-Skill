@@ -31,6 +31,5 @@ references/evidence-log.md
 
 # automation output
 drafts/
-automation/run.log
-automation/engagement.log
+automation/*.log
 automation/.handled-*

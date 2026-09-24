@@ -19,18 +19,11 @@ ignored, so drafts fall back to the generic voice rules until you populate it.
 
 ## Status
 
-- filled: yes
-- source: seeded from project context; voice fingerprint (section 1) and signature
-  examples (section 5) still need Zain's own posts
-- updated: 2026-09-19
+- filled: no
+- source: template
+- updated: --
 
 ## 1. Voice fingerprint
-
-> **NOT YET LEARNED.** Sections 2-4 below are real and should be obeyed. This
-> section is not: no posts of Zain's have been analysed. Until it is filled, use
-> the generic voice rules for rhythm and word choice, and offer
-> `linkedin-humanizer --mode profile` once per session so it can be learned from
-> 3-5 real posts. Do not guess a fingerprint from the pillars.
 
 How your writing actually sounds. Be specific; examples beat adjectives.
 
@@ -44,32 +37,20 @@ How your writing actually sounds. Be specific; examples beat adjectives.
 
 ## 2. Who you are and who you write for
 
-- You are: Zain - builds SaaS products end to end, does ML/research work, and takes on freelance/client projects.
-- Your audience (ICP): founders and technical leads who might hire or collaborate; other builders shipping solo; ML practitioners.
-- Your content pillars:
-  1. Building in public - shipping SaaS products solo (architecture calls, tradeoffs, what broke)
-  2. ML / research - models, evaluation, what the papers leave out
-  3. Freelance / client work - scoping, pricing, delivery, lessons from real projects
-  4. Systems & automation - agents and pipelines that do real work
+- You are: (role, what you build/do, one line)
+- Your audience (ICP): (who you want reading and engaging)
+- Your content pillars: (2-4 recurring themes you post about)
 
 ## 3. Hard rules (always / never)
 
-- Always: first person. One concrete, checkable detail per post - a constraint, a
-  tradeoff, a number I can actually stand behind. Name the thing I built. Say what
-  went wrong as readily as what worked. If I'm uncertain, say so in the post.
-- Never: engagement bait ("agree?", "thoughts?", "comment YES"). No fake vulnerability
-  or manufactured origin story. No implied income or returns - especially not from
-  the trading work. No invented numbers: if the Story Bank doesn't have the figure,
-  the post goes out without one. No "in today's fast-paced world". No hustle-guru
-  register. No hashtag stacks.
+- Always: (e.g. one concrete number per post; first-person; end on a real question)
+- Never: (e.g. no engagement-bait, no "in today's fast-paced world", no naming competitors)
 
 ## 4. Links and CTA
 
-- Primary link you point people to: (GitHub / portfolio - fill this in)
-- Where it goes: first comment, not the post body.
-- Your CTA style: soft invite. Most posts end with no CTA at all; when there is one,
-  it is an open door ("happy to go into the risk engine if anyone's building
-  something similar"), never a direct ask.
+- Primary link you point people to:
+- Where it goes: (in the first comment, in bio, etc.)
+- Your CTA style: (soft invite / direct ask / none)
 
 ## 5. Signature examples
 
@@ -85,13 +66,10 @@ writing skills mirror the rhythm and word choice of these, not a generic voice.
 Used by the illustration step (`lib.illustrate`) to keep every generated image
 on-brand via a pixel-exact overlay. All optional; leave blank to skip the overlay.
 
-- Handle to stamp on images: webbyzain.online
-- Brand color (hex): #D71920 (crimson, from webbyzain.online)
-- Logo: (path or Pixfaro `logo_id`, if you have one — a path can be uploaded
+- Handle to stamp on images: (e.g. @yourname)
+- Brand color (hex): (e.g. #0A66C2)
+- Logo: (path or Pixfaro `logo_id`, if you have one â€” a path can be uploaded
   once with `lib.brand_logo(path)`, which returns the `logo_id` to record here)
-- Overlay position: bottom-right
-- Visual style default: bold editorial on near-black (#08080A) with paper (#F7F7F3)
-  text and crimson (#D71920) as a single accent - never a crimson fill. Flat,
-  geometric, no stock-photo people, no glowing-neon-AI look. Secondary: #123C69.
-  Type reference: Syne for display, Manrope for body, DM Mono for labels.
-- Card style: brand
+- Overlay position: (e.g. bottom-right)
+- Visual style default: (e.g. minimal flat vector; bold editorial; muted photo)
+- Card style: (quote-card `style` â€” "brand", "auto", or a fixed palette/font)

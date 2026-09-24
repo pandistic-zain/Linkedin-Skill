@@ -1,8 +1,0 @@
-[2026-09-24 11:51:48] === lead finder run ===
-[2026-09-24 11:52:29] no lead blocks parsed from output - nothing to queue
-[2026-09-24 11:54:03] === lead finder run ===
-[2026-09-24 11:54:32] no lead blocks parsed from output - nothing to queue
-[2026-09-24 11:54:32]   raw output (first 800 chars): "I need permission to write the script and run the Apify search. I'm blocked on tool approval for both writing `testing/lead_search.py` and running the python command — could you approve one of these so I can proceed with the search?"
-[2026-09-24 12:00:49] === lead finder run ===
-[2026-09-24 12:01:08]   fetched 40 raw post(s) across 4 keyword(s)
-[2026-09-24 12:01:15] no qualifying leads found

@@ -39,12 +39,17 @@ PATHS_TO_COPY = [
 #: tracked file, which nothing in the credential scan would recognise.
 PERSONAL = ("voice-profile.md", "story-bank.md")
 
+#: Generated locally by scripts/mine_evidence.py and gitignored at the root
+#: (it names private repos - see its own docstring). references/ has no
+#: other generated output, so this is the one extra name the copy must skip.
+GENERATED = ("evidence-log.md",)
+
 
 def copy_path(src: Path, dest: Path) -> None:
     if src.is_dir():
         ignore = shutil.ignore_patterns("__pycache__", "*.pyc")
         if src.name == "references":
-            ignore = shutil.ignore_patterns("__pycache__", "*.pyc", *PERSONAL)
+            ignore = shutil.ignore_patterns("__pycache__", "*.pyc", *PERSONAL, *GENERATED)
         if src.name == "scripts":
             ignore = shutil.ignore_patterns(
                 "__pycache__",
@@ -68,8 +73,8 @@ def restore_templates(package_references: Path) -> list[str]:
     restored = []
     for name in PERSONAL:
         tracked = f".codex-marketplace/linkedin-skills/references/{name}"
-        blob = subprocess.run(["git", "show", f"HEAD:{tracked}"],
-                              cwd=ROOT, capture_output=True, text=True)
+        blob = subprocess.run(["git", "show", f"HEAD:{tracked}"], cwd=ROOT,
+                              capture_output=True, text=True, encoding="utf-8", errors="replace")
         if blob.returncode == 0:
             (package_references / name).write_text(blob.stdout, encoding="utf-8")
             restored.append(name)

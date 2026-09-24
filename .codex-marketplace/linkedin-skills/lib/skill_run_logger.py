@@ -39,7 +39,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _post(payload: dict[str, Any]) -> None:
+def _post(payload: dict[str, Any], path: str = "/api/events") -> None:
     load_env()
     import os
 
@@ -52,7 +52,7 @@ def _post(payload: dict[str, Any]) -> None:
         try:
             body = json.dumps(payload).encode("utf-8")
             req = urllib_request.Request(
-                base_url.rstrip("/") + "/api/events",
+                base_url.rstrip("/") + path,
                 data=body,
                 method="POST",
                 headers={
@@ -67,19 +67,32 @@ def _post(payload: dict[str, Any]) -> None:
     threading.Thread(target=_send, daemon=True).start()
 
 
-def start_run(skill: str, *, input_summary: Optional[str] = None) -> str:
+def emit(event_type: str, payload: dict[str, Any]) -> None:
+    """Fire-and-forget send of a versioned envelope event to /api/ingest.
+    Same no-op-if-unconfigured, swallow-everything behavior as `_post`.
+    See dashboard/src/lib/ingest.ts for the event types understood today."""
+    _post(
+        {"schemaVersion": 1, "emittedAt": _now_iso(), "type": event_type, "payload": payload},
+        path="/api/ingest",
+    )
+
+
+def start_run(
+    skill: str, *, input_summary: Optional[str] = None, run_id: Optional[str] = None
+) -> str:
     """Log the start of a skill run. Returns a run id to pass to `finish_run`."""
-    run_id = str(uuid.uuid4())
+    event_id = str(uuid.uuid4())
     _post(
         {
-            "id": run_id,
+            "id": event_id,
             "skill": skill,
             "startedAt": _now_iso(),
             "status": "running",
             "inputSummary": input_summary,
+            "runId": run_id,
         }
     )
-    return run_id
+    return event_id
 
 
 def finish_run(
@@ -92,8 +105,12 @@ def finish_run(
     tokens_note: Optional[str] = None,
     error_text: Optional[str] = None,
     meta: Optional[dict[str, Any]] = None,
+    pipeline_run_id: Optional[str] = None,
 ) -> None:
-    """Log the end of a skill run. `status` is "completed" or "failed"."""
+    """Log the end of a skill run. `status` is "completed" or "failed".
+    `run_id` here is the event id returned by `start_run` (kept positional
+    for backward compatibility); `pipeline_run_id` optionally links this
+    skill run to a parent pipeline Run row."""
     _post(
         {
             "id": run_id,
@@ -105,5 +122,6 @@ def finish_run(
             "tokensNote": tokens_note,
             "errorText": error_text,
             "meta": meta,
+            "runId": pipeline_run_id,
         }
     )
