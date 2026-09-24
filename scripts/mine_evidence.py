@@ -31,6 +31,13 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "references" / "evidence-log.md"
 GITHUB_USER = "pandistic-zain"
 
+sys.path.insert(0, str(ROOT))
+try:
+    from lib.skill_run_logger import emit as _emit  # type: ignore
+except ImportError:
+    def _emit(event_type: str, payload: dict) -> None:  # type: ignore
+        pass  # dashboard logging is optional; never hard-depend on it
+
 # Searched when --repo is not given. Add your own roots here.
 SEARCH_ROOTS = [Path.home() / "mnt", Path("Z:/automation"), Path("Z:/Agency")]
 SKIP_DIRS = {"node_modules", ".venv", "venv", "_to_delete", "site-packages"}
@@ -131,10 +138,14 @@ def main():
     ap.add_argument("--repo", action="append", default=[])
     ap.add_argument("--no-github", action="store_true")
     ap.add_argument("--user", default=GITHUB_USER)
+    ap.add_argument("--run-id", default=None,
+                     help="Pipeline run id (set by automation/run_daily.py) to attach "
+                          "mined entries to on the dashboard. Optional for standalone use.")
     a = ap.parse_args()
 
     repos = [Path(r) for r in a.repo] if a.repo else find_repos(SEARCH_ROOTS)
     repos = [r for r in repos if r.is_dir()]
+    dashboard_entries: list[dict] = []
 
     today = datetime.now().strftime("%Y-%m-%d")
     L = [
@@ -185,6 +196,12 @@ def main():
         if rows:
             for sha, date, subj in rows:
                 L.append(f"- `{sha}` {date} — {subj}")
+                dashboard_entries.append({
+                    "refHash": f"{repo.name}:{sha}",
+                    "type": "commit",
+                    "repo": repo.name,
+                    "title": f"{date} — {subj}",
+                })
         else:
             L.append("_No commits in this window._")
         L.append("")
@@ -208,11 +225,21 @@ def main():
                     bits.append("PRIVATE")
                 L.append(f"- **{r['name']}** ({', '.join(bits)}) — {r['desc'] or 'no description'}")
                 L.append(f"  {r['url']}")
+                dashboard_entries.append({
+                    "refHash": f"gh:{r['name']}:{r['pushed']}",
+                    "type": "github_repo",
+                    "repo": r["name"],
+                    "title": r["desc"] or None,
+                    "url": r["url"],
+                })
             L.append("")
 
     OUT.write_text("\n".join(L) + "\n", encoding="utf-8")
     print(f"Wrote {OUT}")
     print(f"  {len(repos)} local repo(s), window {a.days} days")
+
+    if dashboard_entries:
+        _emit("evidence_mined", {"runId": a.run_id, "entries": dashboard_entries})
 
 
 if __name__ == "__main__":

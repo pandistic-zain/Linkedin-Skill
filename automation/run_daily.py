@@ -317,7 +317,7 @@ def main() -> int:
     # 1. evidence
     log("step 1/4  refreshing evidence log")
     r = subprocess.run([sys.executable, str(ROOT / "scripts" / "mine_evidence.py"),
-                        "--days", "30"], capture_output=True, text=True,
+                        "--days", "30", "--run-id", RUN_ID], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", cwd=ROOT)
     step1_finished = datetime.now().astimezone().isoformat()
     if r.returncode != 0:
