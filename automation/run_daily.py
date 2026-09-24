@@ -137,6 +137,15 @@ PREAMBLE_MARKERS = (
     "here's the draft", "draft:", "post:", "output:",
 )
 
+# The model sometimes narrates a tool-use decision in first person ("I'll count
+# characters manually instead — the draft is fine as-is... No need for the
+# shell tool.") as a standalone line before the real post. It doesn't match
+# PREAMBLE_MARKERS (no "draft:"/"output:" label), so it needs its own check:
+# a first-person opener combined with the model talking ABOUT the draft/tooling
+# rather than starting the post itself.
+NARRATION_OPENERS = ("i'll ", "i will ", "let me ")
+NARRATION_TOPICS = ("draft", "char", "tool", "count", "output", "publish")
+
 
 def _strip_preamble(body: str) -> str:
     """Drop any meta-commentary the model emitted before the post itself.
@@ -153,6 +162,8 @@ def _strip_preamble(body: str) -> str:
         if not low:
             continue
         if any(m in low for m in PREAMBLE_MARKERS) or low.endswith(("output:", "draft:")):
+            cut = i + 1
+        elif low.startswith(NARRATION_OPENERS) and any(t in low for t in NARRATION_TOPICS):
             cut = i + 1
     cleaned = "\n".join(lines[cut:]).strip()
     return cleaned or body
