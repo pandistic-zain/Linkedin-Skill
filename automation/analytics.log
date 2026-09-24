@@ -1,0 +1,27 @@
+[2026-09-20 09:21:42] === engagement snapshot: 5 recent post(s) ===
+[2026-09-20 09:21:42]   skip 6aaf5da86bf27f35d22c47ab: no resolvable LinkedIn URL
+[2026-09-20 09:21:42]   skip 6aaf17cd2026782830afa82e: no resolvable LinkedIn URL
+[2026-09-20 09:21:42]   skip 6aaf10092026782830af9117: no resolvable LinkedIn URL
+[2026-09-20 09:21:42]   skip 6aaf0d5c6bf27f35d22b1a91: no resolvable LinkedIn URL
+[2026-09-20 09:21:42]   skip 6aaf088f6bf27f35d22b00fa: no resolvable LinkedIn URL
+[2026-09-20 09:22:57] === engagement snapshot: 5 recent post(s) ===
+[2026-09-20 09:23:55]   6aaf5da86bf27f35d22c47ab: FAILED ()
+[2026-09-20 09:24:04] === engagement snapshot: 5 recent post(s) ===
+[2026-09-20 09:24:36]   6aaf5da86bf27f35d22c47ab: FAILED ()
+[2026-09-20 09:24:43]   6aaf17cd2026782830afa82e: FAILED ()
+[2026-09-20 09:24:51]   6aaf10092026782830af9117: FAILED ()
+[2026-09-20 09:24:59]   6aaf0d5c6bf27f35d22b1a91: FAILED ()
+[2026-09-20 09:25:07]   6aaf088f6bf27f35d22b00fa: FAILED ()
+[2026-09-24 11:51:54] === analytics run 2026-09-24 ===
+[2026-09-24 11:52:37] report saved: analytics-2026-09-24.md (149 chars)
+[2026-09-24 11:52:37] report generated but no parseable SYNC blocks - audience page not updated this run
+[2026-09-24 11:54:01] === analytics run 2026-09-24 ===
+[2026-09-24 11:55:08] report saved: analytics-2026-09-24.md (184 chars)
+[2026-09-24 11:55:08] report generated but no parseable SYNC blocks - audience page not updated this run
+[2026-09-24 11:55:08]   raw output (first 800 chars): 'The command is blocked pending your explicit approval (it spends real Apify credit on live API calls). Please approve this tool call so I can pull the engagers for the 3 matched posts.'
+[2026-09-24 12:00:51] === analytics run 2026-09-24 ===
+[2026-09-24 12:01:13]   matched 3 post(s)
+[2026-09-24 12:02:18] report saved: analytics-2026-09-24.md (3719 chars)
+[2026-09-24 12:02:19]   synced 0 engager(s) for postGroupId 6ab333065c1d828c89ed0c40
+[2026-09-24 12:02:20]   synced 4 engager(s) for postGroupId 6aaf17cd2026782830afa82e
+[2026-09-24 12:02:20]   synced 1 engager(s) for postGroupId 6aaf10092026782830af9117

@@ -15,6 +15,12 @@ $python = (Get-Command python -ErrorAction SilentlyContinue).Source
 if (-not $python) { $python = (Get-Command python3 -ErrorAction SilentlyContinue).Source }
 if (-not $python) { throw "Python not found on PATH. Install Python 3 and retry." }
 
+# pythonw.exe (same install, no console subsystem) runs with no window at
+# all instead of python.exe's brief console flash. Every script here logs
+# to its own file already, so losing the console's stdout costs nothing.
+$pythonw = Join-Path (Split-Path $python) 'pythonw.exe'
+if (Test-Path $pythonw) { $python = $pythonw } else { Write-Warning "pythonw.exe not found next to python.exe - task will still flash a console window." }
+
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
     Write-Warning "Claude Code CLI ('claude') is not on PATH. The task will install but fail at the draft step."
     Write-Warning "Install it with:  npm i -g @anthropic-ai/claude-code"

@@ -31,6 +31,16 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 
 ROOT = Path(__file__).resolve().parents[1]
+LOG = ROOT / "automation" / "executor.log"
+
+
+def log(msg: str) -> None:
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{stamp}] {msg}"
+    print(line, flush=True)
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    with LOG.open("a", encoding="utf-8") as fh:
+        fh.write(line + "\n")
 
 
 def load_env() -> None:
@@ -63,7 +73,7 @@ def complete(command_id: str, status: str, result: str) -> None:
     try:
         api("/api/commands", method="POST", body={"id": command_id, "status": status, "resultText": result[:2000]})
     except (HTTPError, URLError, OSError) as e:
-        print(f"  WARNING: could not report completion for {command_id}: {e}")
+        log(f"  WARNING: could not report completion for {command_id}: {e}")
 
 
 def run_approve_publish(payload: dict) -> tuple[str, str]:
@@ -93,6 +103,24 @@ def run_approve_publish(payload: dict) -> tuple[str, str]:
         platforms=[os.environ["LINKEDIN_PLATFORM_ID"]],
         scheduled_time=when,
     )
+
+    # run_daily.py's own AUTOPUBLISH path emits this via its pipeline runId
+    # so the draft shows up on /published and later feeds engager-analytics.
+    # A dashboard-approved publish has no pipeline Run - only the Command's
+    # draftId - so emit the same event keyed on that instead (ingest.ts
+    # accepts either). Without this, a manually-approved post never gets a
+    # Post row at all: invisible to /published and to any engager sync.
+    from lib.skill_run_logger import emit  # type: ignore
+
+    post_group_id = res.get("postGroupId") if isinstance(res, dict) else None
+    emit("publish_result", {
+        "draftId": payload.get("draftId"),
+        "postGroupId": post_group_id,
+        "status": "published" if post_group_id else "unknown",
+        "publishedAt": datetime.now(timezone.utc).isoformat(),
+        "providerRaw": res if isinstance(res, dict) else None,
+    })
+
     return "done", f"published: {str(res)[:200]}"
 
 
@@ -140,31 +168,31 @@ HANDLERS = {
 def main() -> int:
     load_env()
     if not os.getenv("DASHBOARD_EVENTS_URL") or not os.getenv("EVENTS_INGEST_SECRET"):
-        print("DASHBOARD_EVENTS_URL/EVENTS_INGEST_SECRET not set — nothing to poll.")
+        log("DASHBOARD_EVENTS_URL/EVENTS_INGEST_SECRET not set — nothing to poll.")
         return 0
 
     try:
         result = api("/api/commands")
     except (HTTPError, URLError, OSError) as e:
-        print(f"poll failed: {e}")
+        log(f"poll failed: {e}")
         return 1
 
     commands = result.get("commands", [])
     if not commands:
-        print("no pending commands")
         return 0
 
     for cmd in commands:
-        print(f"executing {cmd['type']} ({cmd['id']})")
+        log(f"executing {cmd['type']} ({cmd['id']})")
         handler = HANDLERS.get(cmd["type"])
         if not handler:
             complete(cmd["id"], "failed", f"unknown command type {cmd['type']}")
+            log(f"  failed: unknown command type {cmd['type']}")
             continue
         try:
             status, message = handler(cmd.get("payload") or {})
         except Exception as e:
             status, message = "failed", f"{type(e).__name__}: {e}"
-        print(f"  {status}: {message}")
+        log(f"  {status}: {message}")
         complete(cmd["id"], status, message)
 
     return 0

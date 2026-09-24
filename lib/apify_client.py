@@ -24,6 +24,15 @@ Actors used (all no-cookies, public, "$1-$5 per 1,000 results"):
   - scraping_solutions/linkedin-posts-engagers-likers-and-commenters-no-cookies
       Fetch the people who liked or commented on a post. Use for engagement
       analytics (group by seniority, company, role, ICP fit).
+  - apimaestro/linkedin-posts-search-scraper-no-cookies
+      Search public posts by keyword/hashtag (input `keyword`, `limit`,
+      `sort_type`, optional `date_filter`). Output shape is not normalized
+      here — read fields defensively. Use for lead discovery (e.g. posts
+      asking for freelance/contract engineering help).
+  - apimaestro/linkedin-profile-posts
+      A profile's own recent posts (input `username`, `limit`), with real
+      URLs/URNs. Use to resolve a just-published post's live LinkedIn URL -
+      Publora's own API never returns one.
 
 Caching: in-process LRU (256 entries, 6h TTL). Pass `force_refresh=True` on
 any method to bypass. Retries on transient 408/429/5xx (3 attempts with
@@ -88,6 +97,8 @@ class ApifyClient:
     POST_ENGAGERS_ACTOR = (
         "scraping_solutions~linkedin-posts-engagers-likers-and-commenters-no-cookies"
     )
+    POST_SEARCH_ACTOR = "apimaestro~linkedin-posts-search-scraper-no-cookies"
+    PROFILE_POSTS_ACTOR = "apimaestro~linkedin-profile-posts"
 
     def __init__(self, token: Optional[str] = None, timeout: float = 180.0):
         load_env()
@@ -300,6 +311,78 @@ class ApifyClient:
                 {**r, "type": r.get("type", kind)} for r in rows if isinstance(r, dict)
             ]
         return engagers[:max_items]
+
+    # ---- Post search (keyword) --------------------------------------------
+
+    SEARCH_SORT_TYPES = ("relevance", "date_posted")
+
+    def search_posts(
+        self,
+        *,
+        keyword: str,
+        limit: int = 20,
+        sort_type: str = "date_posted",
+        date_filter: Optional[str] = None,
+        force_refresh: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Search public LinkedIn posts by keyword or hashtag.
+
+        Args:
+            keyword: Search term (also matches hashtags).
+            limit: Cap on results, per the actor's schema (max 50).
+            sort_type: "relevance" or "date_posted" (default, so a repeated
+                search surfaces new posts instead of the same top hits).
+            date_filter: Actor-defined recency filter (e.g. "past-24h",
+                "past-week"), passed through as-is when set.
+            force_refresh: Bypass cache.
+
+        Returns:
+            Raw dataset items from the actor, unnormalized — its output shape
+            is not pinned down by this client the way `fetch_post` is, so
+            callers should read fields defensively rather than assume keys.
+        """
+        payload: dict[str, Any] = {
+            "keyword": keyword,
+            "limit": min(limit, 50),
+            "sort_type": sort_type if sort_type in self.SEARCH_SORT_TYPES else "date_posted",
+        }
+        if date_filter:
+            payload["date_filter"] = date_filter
+        return self._run_sync(self.POST_SEARCH_ACTOR, payload, force_refresh=force_refresh)
+
+    # ---- Profile's own recent posts ---------------------------------------
+
+    def fetch_profile_posts(
+        self,
+        *,
+        username: str,
+        limit: int = 10,
+        force_refresh: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Return a profile's own recent posts (real URL, URN, text, date).
+
+        Publora's `list_posts`/`get_post` never return the live LinkedIn URL
+        of a published post (verified against real responses - only
+        `postGroupId` and status come back). This is the only way in this
+        client to resolve a just-published post back to something Apify
+        actors (engager analytics, etc.) can read. Match by content/timing,
+        not by id - there is no shared identifier between Publora and
+        LinkedIn's own post URN.
+
+        Args:
+            username: Last path segment of the profile URL (`LINKEDIN_HANDLE`).
+            limit: Cap on posts returned, per the actor's schema (max 100).
+            force_refresh: Bypass cache.
+
+        Returns:
+            Raw dataset items from the actor, unnormalized - read fields
+            defensively, same caveat as `search_posts`.
+        """
+        return self._run_sync(
+            self.PROFILE_POSTS_ACTOR,
+            {"username": username, "limit": min(limit, 100)},
+            force_refresh=force_refresh,
+        )
 
     # ---- Cache helpers ----------------------------------------------------
 

@@ -279,11 +279,32 @@ def _make_image(brief: str):
         return None
 
 
+def _handled_marker(today: str) -> Path:
+    return ROOT / "automation" / f".handled-{today}"
+
+
+def _already_handled_today(today: str) -> bool:
+    return _handled_marker(today).is_file()
+
+
+def _mark_handled_today(today: str) -> None:
+    """Call once a draft has actually been produced for today (whether it
+    ends up published, queued, blocked, or held) - not on the earlier
+    infra failures (evidence refresh, missing Claude CLI), which stay
+    retry-eligible. A reboot-triggered rerun later the same day must
+    never draft and publish a SECOND, different post."""
+    _handled_marker(today).parent.mkdir(parents=True, exist_ok=True)
+    _handled_marker(today).write_text(datetime.now().isoformat(), encoding="utf-8")
+
+
 def main() -> int:
     global RUN_ID
     load_env()
     DRAFTS.mkdir(parents=True, exist_ok=True)
     today = datetime.now().strftime("%Y-%m-%d")
+    if _already_handled_today(today):
+        log(f"=== daily run {today} already handled - skipping (boot/retry trigger) ===")
+        return 0
     # Deterministic per-day id: a same-day rerun (e.g. after a fixed error)
     # upserts the same Run/SkillRun rows instead of duplicating them.
     RUN_ID = f"daily-{today}"
@@ -349,6 +370,7 @@ def main() -> int:
 
     if not body or "no draft" in body.lower()[:200]:
         log("step 3/4  skill stood aside - no post worth making today")
+        _mark_handled_today(today)
         _emit("step_finished", {"runId": RUN_ID, "stepKey": "draft", "status": "completed",
                                  "startedAt": draft_started, "finishedAt": draft_finished})
         _emit("run_finished", {"runId": RUN_ID, "status": "completed",
@@ -361,6 +383,9 @@ def main() -> int:
     path = DRAFTS / f"{today}.md"
     path.write_text(f"# Draft {today}\n\n{body}\n\n---\n{note}\n", encoding="utf-8")
     log(f"step 3/4  draft saved: {path.name} ({len(body)} chars)")
+    # From here on, a draft exists for today - any reboot-triggered rerun
+    # must not draft and potentially publish a second, different post.
+    _mark_handled_today(today)
     _emit("step_finished", {"runId": RUN_ID, "stepKey": "draft", "status": "completed",
                              "startedAt": draft_started, "finishedAt": draft_finished})
     _emit("draft_saved", {"runId": RUN_ID, "contentMd": body, "noteMd": note,

@@ -33,3 +33,4 @@ references/evidence-log.md
 drafts/
 automation/run.log
 automation/engagement.log
+automation/.handled-*

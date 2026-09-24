@@ -145,6 +145,32 @@ deals, litigation, health, other people's business, anything under NDA.
 - Client names, client revenue, and anything from a client codebase.
 - Application outcomes and anyone else's grades or reviews.
 
+## 10. Content strategy preferences
+
+Notes for `linkedin-content-planner` (and any planning done in a live session):
+this bundle's default pillar guidance is generic; these are Zain's own
+overrides on top of it.
+
+- **GitHub commits are a secondary source, not the primary one.** The daily
+  pipeline (`automation/run_daily.py`) currently sources every post from
+  `references/evidence-log.md` (mined commit history) - that is a starting
+  point, not the whole content strategy. Weekly/monthly planning should pull
+  most angles from real client-facing engineering work: problems solved,
+  systems shipped, decisions made for a client or product - not "I committed
+  code today."
+- **The goal is engaging foreign clients**, not just impressions for their own
+  sake. Favor posts and comments that a founder/technical lead evaluating a
+  freelance/contract hire would actually read and act on - saves and profile
+  visits from that audience matter more than raw reach.
+- **Serious-issue posts are occasional, not routine.** Only write "here's the
+  bug/incident and how I engineered my way out of it" when the issue was
+  genuinely serious (real production impact, a hard tradeoff, a non-obvious
+  root cause) - not every fix or every commit. These should read as rare and
+  earned, not a weekly template.
+- **No image/illustration requirement per post, for now.** Zain is still
+  working out the visual theme; skip generating or requesting an image for
+  every post until that's settled, then this note gets revisited.
+
 ---
 
 ## How drafts use this

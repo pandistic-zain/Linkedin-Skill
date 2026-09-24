@@ -238,6 +238,21 @@ class PubloraClient:
         )
         return self._handle(r)
 
+    def list_posts(self, *, status: Optional[str] = None) -> list[dict[str, Any]]:
+        """List posts, optionally filtered by status (e.g. "published").
+
+        Mirrors dashboard/src/lib/publora.ts's listPosts - same endpoint,
+        same tolerant unwrap (the response shape has varied between a bare
+        array, {posts: [...]}, and {data: [...]}).
+        """
+        params = {"status": status} if status else None
+        r = self._session.get(f"{self.BASE_URL}/list-posts", params=params, timeout=self.timeout)
+        payload = self._handle(r)
+        if isinstance(payload, list):
+            return payload
+        rows = payload.get("posts") or payload.get("data") or payload
+        return rows if isinstance(rows, list) else []
+
     def delete_post(self, *, post_group_id: str, allow_live: bool = False) -> dict[str, Any]:
         """Delete a draft or scheduled post by its `postGroupId`.
 
