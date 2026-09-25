@@ -18,6 +18,13 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
 REFERENCE = re.compile(r"`((?:\.\.?/)*[A-Za-z0-9_.\-]+(?:/[A-Za-z0-9_.\-]+)*\.md)(?:#[^`]*)?`")
 
+#: Generated locally by scripts/mine_evidence.py, gitignored (see .gitignore
+#: and the file's own docstring - it names private repos), so it never exists
+#: in a fresh checkout. Every skill that cites it already guards the read with
+#: "if it exists"; this check must not treat that documented-optional path as
+#: broken just because CI has no local run to generate it.
+OPTIONAL = {ROOT / "references" / "evidence-log.md"}
+
 
 def documents() -> list[Path]:
     """Root SKILL.md, shared root references, and everything under skills/."""
@@ -28,7 +35,10 @@ def documents() -> list[Path]:
 
 
 def resolves(document: Path, ref: str) -> bool:
-    return (document.parent / ref).resolve().is_file() or (ROOT / ref).resolve().is_file()
+    target = (document.parent / ref).resolve()
+    if target.is_file() or (ROOT / ref).resolve().is_file():
+        return True
+    return target in OPTIONAL or (ROOT / ref).resolve() in OPTIONAL
 
 
 def main() -> None:
