@@ -1,10 +1,10 @@
-"""Fire-and-forget skill-run logging to the dashboard's /api/events ingest.
+"""Ordered, best-effort skill-run logging to the dashboard's ingest routes.
 
 Zero third-party dependencies (stdlib `urllib` only) so it works at every
 support tier, including Tier 0 manual users who never install `requests`.
-Every call runs on a short-lived daemon thread with a small timeout and
-swallows all exceptions: a dashboard that is down, slow, or misconfigured
-must never slow down or break a skill run.
+Every call completes synchronously with a small timeout. This preserves event
+order and avoids losing terminal events when a scheduled process exits.
+An unavailable dashboard does not raise into the calling skill.
 
 Configuration is two env vars, both optional:
 - DASHBOARD_EVENTS_URL: base URL of the dashboard, e.g. https://dash.example.com
@@ -23,7 +23,6 @@ Usage:
 from __future__ import annotations
 
 import json
-import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -60,15 +59,18 @@ def _post(payload: dict[str, Any], path: str = "/api/events") -> None:
                     "Authorization": f"Bearer {secret}",
                 },
             )
-            urllib_request.urlopen(req, timeout=_TIMEOUT_SECONDS)
+            with urllib_request.urlopen(req, timeout=_TIMEOUT_SECONDS) as response:
+                response.read()
         except (URLError, OSError, ValueError):
             pass  # never let logging break the calling skill
 
-    threading.Thread(target=_send, daemon=True).start()
+    # Ordered, bounded delivery: draft_saved must land before publish_result,
+    # and process exit must not discard the final event on a daemon thread.
+    _send()
 
 
 def emit(event_type: str, payload: dict[str, Any]) -> None:
-    """Fire-and-forget send of a versioned envelope event to /api/ingest.
+    """Bounded synchronous send of a versioned envelope event to /api/ingest.
     Same no-op-if-unconfigured, swallow-everything behavior as `_post`.
     See dashboard/src/lib/ingest.ts for the event types understood today."""
     _post(

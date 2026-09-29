@@ -22,6 +22,11 @@
 
 Read-only: never drafts or publishes anything.
 
+Every run reports itself as a skill_run event for
+linkedin-engager-analytics, which is what the dashboard's Skills and
+Activity pages read; a missing APIFY_TOKEN/LINKEDIN_HANDLE shows up as
+a failed (not configured) run instead of a silent no-op.
+
 Safe to run with nothing configured: exits 0 if APIFY_TOKEN or
 LINKEDIN_HANDLE are unset.
 """
@@ -40,6 +45,18 @@ from urllib.error import URLError
 ROOT = Path(__file__).resolve().parents[1]
 DRAFTS = ROOT / "drafts"
 LOG = ROOT / "automation" / "analytics.log"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from skill_run_event import finish_skill_run, skill_run_id  # noqa: E402
+from runtime import run_command  # noqa: E402
+
+
+def report(status: str, run_id: str, started: str, **fields) -> None:
+    """One skill_run event per scheduled run - this is what the dashboard's
+    Skills and Activity pages read instead of linkedin-engager-analytics
+    showing IDLE forever."""
+    finish_skill_run("linkedin-engager-analytics", status, run_id=run_id,
+                     started_at=started, **fields)
 
 
 def load_env() -> None:
@@ -63,11 +80,11 @@ def log(msg: str) -> None:
         fh.write(line + "\n")
 
 
-def emit(event_type: str, payload: dict) -> None:
+def emit(event_type: str, payload: dict) -> bool:
     url = os.getenv("DASHBOARD_EVENTS_URL")
     secret = os.getenv("EVENTS_INGEST_SECRET")
     if not url or not secret:
-        return
+        return False
     body = {
         "schemaVersion": 1,
         "emittedAt": datetime.now().astimezone().isoformat(),
@@ -82,8 +99,10 @@ def emit(event_type: str, payload: dict) -> None:
             method="POST",
         )
         urllib.request.urlopen(req, timeout=10).read()
+        return True
     except (URLError, OSError) as e:
         log(f"  dashboard ping failed ({type(e).__name__}) - continuing")
+        return False
 
 
 def claude_bin() -> str | None:
@@ -97,13 +116,17 @@ def claude_bin() -> str | None:
     return None
 
 
-def run_claude(cb: str, prompt: str) -> str | None:
-    r = subprocess.run([cb, "-p", prompt], capture_output=True, text=True,
+def run_claude(cb: str, prompt: str) -> tuple[str | None, str | None]:
+    """(output, error) - exactly one is set. Quota and auth failures are
+    printed on stdout, which is why reading only stderr used to log the
+    useless string "empty output"."""
+    r = run_command([cb, "-p", prompt], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", cwd=ROOT, timeout=900)
     if r.returncode != 0 or not r.stdout.strip():
-        log(f"FAILED: {(r.stderr or 'empty output').strip()[:300]}")
-        return None
-    return r.stdout.strip()
+        reason = (r.stderr or r.stdout or "empty output").strip()
+        log(f"FAILED: claude exited {r.returncode}: {reason[:300]}")
+        return None, f"claude exited {r.returncode}: {reason[:400]}"
+    return r.stdout.strip(), None
 
 
 # ---- Pass 1: match Publora's published posts to their live URL ------------
@@ -204,9 +227,15 @@ def parse_syncs(output: str) -> list[dict]:
 def main() -> int:
     load_env()
     DRAFTS.mkdir(parents=True, exist_ok=True)
+    started = datetime.now().astimezone().isoformat()
+    rid = skill_run_id("linkedin-engager-analytics", stamp=True)
+
     handle = os.getenv("LINKEDIN_HANDLE", "").strip()
     if not handle or not os.getenv("APIFY_TOKEN"):
+        missing = [n for n, v in (("LINKEDIN_HANDLE", handle), ("APIFY_TOKEN", os.getenv("APIFY_TOKEN")))
+                   if not v]
         log("LINKEDIN_HANDLE or APIFY_TOKEN not set - nothing to do.")
+        report("failed", rid, started, error_text=f"not configured: {', '.join(missing)} unset")
         return 0
 
     sys.path.insert(0, str(ROOT))
@@ -214,11 +243,13 @@ def main() -> int:
 
     today = datetime.now().strftime("%Y-%m-%d")
     log(f"=== analytics run {today} ===")
+    report("running", rid, started, input_summary=f"last 7 days, handle {handle}")
 
     try:
         published = PubloraClient().list_posts(status="published")
     except Exception as e:
         log(f"FAILED: could not list Publora posts ({type(e).__name__}: {e})")
+        report("failed", rid, started, error_text=f"Publora list_posts failed: {type(e).__name__}")
         return 1
 
     week_ago = datetime.now().timestamp() - 7 * 86400
@@ -234,6 +265,8 @@ def main() -> int:
 
     if not recent_published:
         log("nothing published in the last 7 days per Publora - nothing to analyze")
+        report("completed", rid, started, input_summary=f"last 7 days, handle {handle}",
+               outcome="nothing published in the last 7 days")
         return 0
 
     client = ApifyClient()
@@ -241,28 +274,33 @@ def main() -> int:
         own_posts = client.fetch_profile_posts(username=handle, limit=10)
     except Exception as e:
         log(f"FAILED: could not fetch own recent posts ({type(e).__name__}: {e})")
+        report("failed", rid, started, error_text=f"fetch_profile_posts failed: {type(e).__name__}")
         return 1
 
     cb = claude_bin()
     if not cb:
         log("FAILED: Claude Code CLI not found on PATH.")
+        report("failed", rid, started, error_text="claude CLI not found on PATH")
         return 1
 
     # Pass 1: match (no live paid calls in this pass).
-    match_out = run_claude(cb, MATCH_PROMPT.format(
+    match_out, match_err = run_claude(cb, MATCH_PROMPT.format(
         publora_json=json.dumps(recent_published)[:8000],
         apify_json=json.dumps(own_posts)[:8000],
     ))
     if match_out is None:
+        report("failed", rid, started, error_text=f"match pass: {match_err}")
         return 1
     if "NO_MATCH" in match_out and "---MATCH---" not in match_out:
         log("no confident match between Publora's published posts and Apify's recent posts")
+        report("completed", rid, started, outcome="no confident post matches this week")
         return 0
 
     matches = parse_matches(match_out)
     if not matches:
         log("no MATCH blocks parsed - nothing to analyze this run")
         log(f"  raw output (first 800 chars): {match_out[:800]!r}")
+        report("failed", rid, started, error_text="match pass produced no parseable MATCH blocks")
         return 0
     log(f"  matched {len(matches)} post(s)")
 
@@ -287,6 +325,7 @@ def main() -> int:
 
     if not engagers_by_post:
         log("matched posts but every engager fetch failed - nothing to report")
+        report("failed", rid, started, error_text="every fetch_post_engagers call failed")
         return 1
 
     # Pass 2: tier/report on the pre-fetched data (no live paid calls in this pass either).
@@ -295,10 +334,11 @@ def main() -> int:
          "engagers": engagers}
         for pgid, engagers in engagers_by_post.items()
     ]
-    report_out = run_claude(cb, REPORT_PROMPT.format(
+    report_out, report_err = run_claude(cb, REPORT_PROMPT.format(
         n=len(report_input), engagers_json=json.dumps(report_input)[:12000],
     ))
     if report_out is None:
+        report("failed", rid, started, error_text=f"report pass: {report_err}")
         return 1
 
     path = DRAFTS / f"analytics-{today}.md"
@@ -306,14 +346,26 @@ def main() -> int:
     log(f"report saved: {path.name} ({len(report_out)} chars)")
 
     syncs = parse_syncs(report_out)
+    # Empty fetched audiences need no model classification. Preserve that
+    # distinction from a failed fetch and never accept invented post IDs.
+    syncs = [s for s in syncs if s["postGroupId"] in engagers_by_post
+             and engagers_by_post[s["postGroupId"]]]
+    syncs.extend({"postGroupId": pgid, "engagers": []}
+                 for pgid, engagers in engagers_by_post.items() if not engagers)
     for s in syncs:
-        emit("engagers_synced", s)
+        if not emit("engagers_synced", s):
+            report("failed", rid, started, error_text="audience delivery failed; report saved locally")
+            return 1
         log(f"  synced {len(s['engagers'])} engager(s) for postGroupId {s['postGroupId']}")
 
-    if not syncs:
+    if {s["postGroupId"] for s in syncs} != set(engagers_by_post):
         log("report generated but no parseable SYNC blocks - audience page not updated this run")
         log(f"  raw output (first 800 chars): {report_out[:800]!r}")
+        report("failed", rid, started, error_text="report omitted audience sync blocks")
+        return 1
 
+    report("completed", rid, started, decision=f"{len(matches)} post(s), {len(syncs)} synced",
+           outcome=f"report {path.name}, {len(syncs)} post(s) synced")
     return 0
 
 

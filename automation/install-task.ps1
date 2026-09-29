@@ -29,7 +29,7 @@ if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
 $action  = New-ScheduledTaskAction -Execute $python -Argument "`"$script`"" -WorkingDirectory $repo
 $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday -At $time
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopIfGoingOnBatteries `
-            -AllowStartIfOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+            -AllowStartIfOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 40)
 
 Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger `
     -Settings $settings -Description "Drafts a LinkedIn post each weekday morning." -Force | Out-Null

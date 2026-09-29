@@ -22,8 +22,6 @@ testing/
 # but this machine lacks symlink privilege so they're NTFS junctions, which
 # git can't index. Ignored here; skills/ remains the source of truth.
 .claude/skills/
-references/voice-profile.md
-references/story-bank.md
 
 # separate project/repo, not part of the skills bundle
 dashboard/
@@ -32,4 +30,6 @@ references/evidence-log.md
 # automation output
 drafts/
 automation/*.log
+automation/.*.lock
 automation/.handled-*
+automation/.topic-history*

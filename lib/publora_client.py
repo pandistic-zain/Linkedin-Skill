@@ -18,13 +18,11 @@ Auth header: x-publora-key: sk_...
 
 Design note: this client is deliberately minimal. Skills call exactly one
 method per action, after the user has approved a draft rendered via
-`lib/approval.py`. All write methods retry on transient 408/429/5xx via the
-shared retry decorator.
+`lib/approval.py`. Writes are never retried automatically: a timeout or 5xx
+can follow a successful creation. Reconcile with the provider before retrying.
 """
 from __future__ import annotations
 import os
-import time
-import random
 from typing import Any, Optional
 
 import requests
@@ -34,38 +32,6 @@ from ._env import load_env
 
 class PubloraError(RuntimeError):
     pass
-
-
-RETRYABLE_STATUSES = {408, 429, 500, 502, 503, 504}
-
-
-def _retry(attempts: int = 3, base_delay: float = 0.6):
-    """Retry decorator for HTTP methods. Triggers on 408/429/5xx and on
-    transient network errors. Exponential backoff with jitter."""
-
-    def decorator(fn):
-        def wrapper(*args, **kwargs):
-            last_exc: Optional[Exception] = None
-            for attempt in range(attempts):
-                try:
-                    return fn(*args, **kwargs)
-                except PubloraError as e:
-                    msg = str(e)
-                    retryable = any(f"HTTP {s}" in msg for s in RETRYABLE_STATUSES)
-                    if not retryable or attempt == attempts - 1:
-                        raise
-                    last_exc = e
-                except (requests.ConnectionError, requests.Timeout) as e:
-                    if attempt == attempts - 1:
-                        raise
-                    last_exc = e
-                time.sleep(base_delay * (2**attempt) + random.uniform(0, 0.25))
-            assert last_exc is not None
-            raise last_exc
-
-        return wrapper
-
-    return decorator
 
 
 class PubloraClient:
@@ -330,8 +296,9 @@ class PubloraClient:
 
     # ---- Internals --------------------------------------------------------
 
-    @_retry()
     def _post(self, path: str, json_body: dict[str, Any]) -> dict[str, Any]:
+        # ponytail: no provider idempotency contract; reconcile ambiguous writes
+        # manually until a documented idempotency key is available.
         r = self._session.post(
             self.BASE_URL + path, json=json_body, timeout=self.timeout
         )

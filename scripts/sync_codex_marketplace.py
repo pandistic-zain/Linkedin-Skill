@@ -37,12 +37,23 @@ PATHS_TO_COPY = [
 #: template and never a filled copy: syncing after filling one would stage a
 #: voice fingerprint, client names and every number in a Story Bank into a
 #: tracked file, which nothing in the credential scan would recognise.
-PERSONAL = ("voice-profile.md", "story-bank.md")
+PERSONAL = ("voice-profile.md", "story-bank.md", "profile-snapshot.md", "team.md")
 
 #: Generated locally by scripts/mine_evidence.py and gitignored at the root
 #: (it names private repos - see its own docstring). references/ has no
 #: other generated output, so this is the one extra name the copy must skip.
 GENERATED = ("evidence-log.md",)
+
+
+def _is_filled(path: Path) -> bool:
+    """Conservative: a template without a `filled:` line counts as filled,
+    so it stays out of the package instead of leaking as a blank."""
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        s = line.strip().lstrip("-*").strip().lower()
+        if s.startswith("filled:"):
+            return "yes" in s.split(":", 1)[1]
+    return True
+
 
 
 def copy_path(src: Path, dest: Path) -> None:
@@ -69,6 +80,10 @@ def restore_templates(package_references: Path) -> list[str]:
     They are skipped by the copy above, so without this a fresh sync would leave
     the package without them entirely. Reading them from the index rather than
     from disk is the point: the working copy may be filled in.
+
+    A name that git does not know yet (a new template before its first commit)
+    falls back to the working copy only while it is still blank - a filled one
+    is reported and left out, never staged into the package.
     """
     restored = []
     for name in PERSONAL:
@@ -78,6 +93,18 @@ def restore_templates(package_references: Path) -> list[str]:
         if blob.returncode == 0:
             (package_references / name).write_text(blob.stdout, encoding="utf-8")
             restored.append(name)
+            continue
+        working = ROOT / "references" / name
+        if not working.is_file():
+            print(f"  WARNING: {name} is in no commit and absent from references/ - "
+                  "the package ships without it")
+            continue
+        if _is_filled(working):
+            print(f"  WARNING: {name} is filled in and not committed yet - leaving it "
+                  "out of the package. Commit the blank template first.")
+            continue
+        shutil.copy2(working, package_references / name)
+        restored.append(f"{name} (working copy, still blank)")
     return restored
 
 

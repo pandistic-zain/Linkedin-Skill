@@ -115,6 +115,7 @@ Global voice rules: see root `SKILL.md` §Voice rules. Additional skill-specific
 - Don't name-drop the user's product in a way that reads as self-promo. One mention max, and only when it's the natural conclusion, not the pitch.
 - Include at least one moment of real vulnerability or concrete stakes. Pure insight posts don't land in 2026.
 - Natural rhythm, not manufactured variance: one genuinely long sentence next to a short one per paragraph is fine; never alternate long/short across the post and never stack fragments (at most 2 standalone fragments per post). Touch a paragraph only if every sentence reads the same flat length.
+- **Trends over work logs.** Unless the user names a topic, the default subject is a trend in freelancing and contract software work in their industry (what clients pay for, AI tooling vs hourly billing, retainers, pricing pressure, niching, client acquisition). A post whose subject is something they shipped is at most 1 in 4; their own work reads better as one example inside a trend post than as the story. Never reuse a subject or angle from a post made in the last two weeks.
 
 ## Anti-patterns (skill will refuse)
 

@@ -21,6 +21,10 @@ Stand up a marketing-team LinkedIn advocacy program that scales without killing 
 - Marketing goal (reach / pipeline / recruiting / thought leadership)
 - Current state (everyone silent / some active / inconsistent)
 - Brand guideline constraints
+- Or, for a scheduled run: the roster in `../../references/team.md`. Fill it
+  once and set `filled: yes`; until then the scheduled run reports
+  `not configured: references/team.md is not filled in - no team roster
+  configured` instead of inventing a team.
 
 ## Output
 

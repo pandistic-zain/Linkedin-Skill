@@ -75,6 +75,16 @@ otherwise.
   (post-audit, emoji-detector, detector-tester, rules-explainer) and
   `scripts/` for runnable tools. Don't duplicate this pattern in other
   skills without a clear reason.
+- Four root references are **personal templates the user fills once**:
+  `voice-profile.md`, `story-bank.md`, `profile-snapshot.md`, `team.md`.
+  Each carries `filled: no` / `filled: yes`, and skills ignore them until it
+  says yes (a scheduled run reports `not configured: <file>` instead of
+  guessing). They ship tracked and blank: a `.gitignore` rule never applied
+  to an already-tracked file and it blocked `git add` of the blank template,
+  so the guard is `scripts/check_no_secrets.py`, which fails any tracked copy
+  marked `filled: yes`. They are also listed in `PERSONAL` in
+  `scripts/sync_codex_marketplace.py` so a filled copy can never ship in the
+  Codex package - add any new filled-by-user reference to that tuple.
 
 ## .claude/skills mirror
 
@@ -117,6 +127,35 @@ otherwise.
 - Don't suggest competitor schedulers (Buffer, Hootsuite, Later) by
   name in committed files - the bundle is positioned as the canonical
   Apify-read + Publora-write integration.
+
+## Automation
+
+- **Schedule layer** (Windows Task Scheduler; `automation/install-task.ps1`
+  and `automation/install-continuous-tasks.ps1` register everything):
+  `run_daily.py` Mon-Fri 07:00 owns the one planned post (draft ->
+  humanizer audit -> publish or queue), `run_engagement.py` every 4h,
+  `run_lead_finder.py` every 12h, `run_analytics.py` Mondays 08:00,
+  `dashboard_executor.py` every 5m, and `run_skill.py <skill>` for the six
+  skills with their own cadence - content-planner, hook-extractor and
+  repurposer weekly; profile-optimizer, employee-advocacy and interviewer
+  on the 1st of each month - PowerShell 5.1's `New-ScheduledTaskTrigger`
+  has no `-Monthly`, and a hand-built `MSFT_TaskMonthlyTrigger` CIM
+  instance is rejected with 0x80070057, so `install-continuous-tasks.ps1`
+  registers those three from task XML instead).
+- **Every scheduled run emits its own `skill_run` event** through
+  `automation/skill_run_event.py`. That row is all the dashboard's Skills and
+  Activity pages read, so a script that never emits one shows its skill IDLE
+  forever no matter how often it runs. Ids are `<skill>-YYYY-MM-DD`;
+  pass `stamp=True` for skills that run more than once a day, or each run
+  overwrites the last.
+- A missing input is a **failed** run with
+  `errorText=not configured: <what is missing>` - never a silent no-op, and
+  never exit non-zero for it either (the scheduler would retry in a loop).
+- Claude Code prints quota and auth failures on **stdout**: read
+  `(r.stderr or r.stdout or "no output")`, or every failure logs as
+  "no output".
+- Logs: `automation/run.log`, `skills.log`, `engagement.log`, `leads.log`,
+  `analytics.log` - all ignored by the `automation/*.log` rule.
 
 ## Codex marketplace package
 

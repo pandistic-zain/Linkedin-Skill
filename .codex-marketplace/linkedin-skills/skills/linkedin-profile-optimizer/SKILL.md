@@ -17,6 +17,10 @@ Audit the nine components of a LinkedIn profile (photo, banner, headline, About,
 ## Input
 
 - Profile URL (or screenshots of sections)
+- The profile itself, pasted once into `../../references/profile-snapshot.md`:
+  the scheduled run reads that file when `filled: yes`, so this skill can
+  produce the scorecard without you. Until it is filled, a scheduled run
+  reports `not configured: references/profile-snapshot.md is not filled in`.
 - Goal: **clients** / **job seeking** / **authority** — Featured and CTA vary by goal
 - Optional: draft content to grade against the existing profile
 

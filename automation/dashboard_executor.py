@@ -29,6 +29,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from runtime import run_command, single_instance
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG = ROOT / "automation" / "executor.log"
@@ -113,15 +114,21 @@ def run_approve_publish(payload: dict) -> tuple[str, str]:
     from lib.skill_run_logger import emit  # type: ignore
 
     post_group_id = res.get("postGroupId") if isinstance(res, dict) else None
+    if not post_group_id or res.get("success") is False:
+        return "failed", "provider did not confirm scheduling; reconcile before retrying"
+    status = res.get("status") or "scheduled"
+    if status not in {"scheduled", "published"}:
+        return "failed", f"provider status {status}; reconcile before retrying"
     emit("publish_result", {
         "draftId": payload.get("draftId"),
         "postGroupId": post_group_id,
-        "status": "published" if post_group_id else "unknown",
-        "publishedAt": datetime.now(timezone.utc).isoformat(),
+        "status": status,
+        "scheduledFor": res.get("scheduledTime") or when,
+        "publishedAt": datetime.now(timezone.utc).isoformat() if status == "published" else None,
         "providerRaw": res if isinstance(res, dict) else None,
     })
 
-    return "done", f"published: {str(res)[:200]}"
+    return "done", f"{status}: {post_group_id}"
 
 
 def run_approve_reply(payload: dict) -> tuple[str, str]:
@@ -147,9 +154,9 @@ def run_approve_reply(payload: dict) -> tuple[str, str]:
 
 
 def run_now(payload: dict) -> tuple[str, str]:
-    r = subprocess.run(
+    r = run_command(
         [sys.executable, str(ROOT / "automation" / "run_daily.py")],
-        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900,
+        cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=2400,
     )
     if r.returncode == 0:
         return "done", "run_daily.py completed"
@@ -166,6 +173,14 @@ HANDLERS = {
 
 
 def main() -> int:
+    with single_instance(ROOT / "automation" / ".executor.lock") as acquired:
+        if not acquired:
+            log("executor already running - skipping concurrent invocation")
+            return 0
+        return _main()
+
+
+def _main() -> int:
     load_env()
     if not os.getenv("DASHBOARD_EVENTS_URL") or not os.getenv("EVENTS_INGEST_SECRET"):
         log("DASHBOARD_EVENTS_URL/EVENTS_INGEST_SECRET not set — nothing to poll.")

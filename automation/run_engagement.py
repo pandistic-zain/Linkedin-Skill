@@ -14,8 +14,13 @@ the evidence-sourcing + self-check steps before AUTOPUBLISH), replies
 target threads and people this pipeline has never seen before — so
 this always drafts-only, regardless of AUTOPUBLISH.
 
+Every scheduled run reports itself as a skill_run event (thread-monitor
+always, reply-handler only when a reply was actually drafted), which is
+what the dashboard's Skills and Activity pages read.
+
 Safe to run with nothing configured: exits 0 if DASHBOARD_EVENTS_URL/
 EVENTS_INGEST_SECRET are unset, same as run_daily.py's dashboard ping.
+A missing LINKEDIN_HANDLE still reports a failed (not configured) run.
 """
 from __future__ import annotations
 
@@ -31,6 +36,16 @@ from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG = ROOT / "automation" / "engagement.log"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from skill_run_event import finish_skill_run, skill_run_id  # noqa: E402
+from runtime import run_command  # noqa: E402
+
+
+def report(skill: str, status: str, run_id: str, started: str, **fields) -> None:
+    """One skill_run event per scheduled run - this is what makes the skill
+    show up on the dashboard instead of IDLE forever."""
+    finish_skill_run(skill, status, run_id=run_id, started_at=started, **fields)
 
 
 def load_env() -> None:
@@ -54,11 +69,11 @@ def log(msg: str) -> None:
         fh.write(line + "\n")
 
 
-def emit_reply_drafted(fields: dict) -> None:
+def emit_reply_drafted(fields: dict) -> bool:
     url = os.getenv("DASHBOARD_EVENTS_URL")
     secret = os.getenv("EVENTS_INGEST_SECRET")
     if not url or not secret:
-        return
+        return False
     payload = {
         "schemaVersion": 1,
         "emittedAt": datetime.now().astimezone().isoformat(),
@@ -81,8 +96,10 @@ def emit_reply_drafted(fields: dict) -> None:
             method="POST",
         )
         urllib.request.urlopen(req, timeout=5).read()
+        return True
     except (URLError, OSError) as e:
         log(f"  dashboard ping failed ({type(e).__name__}) - continuing")
+        return False
 
 
 def claude_bin() -> str | None:
@@ -139,39 +156,69 @@ def parse_replies(output: str) -> list[dict]:
 
 def main() -> int:
     load_env()
+    started = datetime.now().astimezone().isoformat()
+    monitor_id = skill_run_id("linkedin-thread-monitor", stamp=True)
+    reply_id = skill_run_id("linkedin-reply-handler", stamp=True)
+
     handle = os.getenv("LINKEDIN_HANDLE")
     if not handle:
         log("LINKEDIN_HANDLE not set in .env - nothing to check. Add it (last path segment of your profile URL).")
+        report("linkedin-thread-monitor", "failed", monitor_id, started,
+               error_text="not configured: LINKEDIN_HANDLE is not set")
         return 0
 
     cb = claude_bin()
     if not cb:
         log("FAILED: Claude Code CLI not found on PATH.")
+        report("linkedin-thread-monitor", "failed", monitor_id, started,
+               error_text="claude CLI not found on PATH")
         return 1
 
     log(f"=== engagement check for {handle} ===")
+    report("linkedin-thread-monitor", "running", monitor_id, started,
+           input_summary=f"handle {handle}")
     prompt = PROMPT_TEMPLATE.format(handle=handle)
-    r = subprocess.run([cb, "-p", prompt], capture_output=True, text=True,
+    r = run_command([cb, "-p", prompt], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", cwd=ROOT, timeout=900)
     if r.returncode != 0:
-        log(f"FAILED: {(r.stderr or 'no output').strip()[:300]}")
+        # quota and auth errors arrive on stdout, not stderr
+        reason = (r.stderr or r.stdout or "no output").strip()
+        log(f"FAILED: claude exited {r.returncode}: {reason[:300]}")
+        report("linkedin-thread-monitor", "failed", monitor_id, started,
+               input_summary=f"handle {handle}",
+               error_text=f"claude exited {r.returncode}: {reason[:400]}")
         return 1
 
     out = r.stdout.strip()
     if "NO_ACTION" in out and "---REPLY---" not in out:
         log("no hot/warm threads found")
+        report("linkedin-thread-monitor", "completed", monitor_id, started,
+               input_summary=f"handle {handle}", outcome="no hot/warm threads")
         return 0
 
     replies = parse_replies(out)
     if not replies:
         log("no reply blocks parsed from output - nothing to queue")
+        report("linkedin-thread-monitor", "failed", monitor_id, started,
+               input_summary=f"handle {handle}",
+               error_text="output had no parseable reply blocks")
         return 0
 
     for fields in replies:
         log(f"  drafted reply to {fields.get('AUTHOR', 'unknown')} on {fields.get('POST_URL')}")
-        emit_reply_drafted(fields)
+        if not emit_reply_drafted(fields):
+            report("linkedin-thread-monitor", "failed", monitor_id, started,
+                   error_text="reply delivery failed; check dashboard before retrying")
+            return 1
 
     log(f"queued {len(replies)} reply draft(s) for approval on the dashboard")
+    report("linkedin-thread-monitor", "completed", monitor_id, started,
+           input_summary=f"handle {handle}",
+           decision=f"{len(replies)} hot/warm thread(s)",
+           outcome=f"{len(replies)} reply draft(s) queued")
+    report("linkedin-reply-handler", "completed", reply_id, started,
+           input_summary=f"{len(replies)} thread(s)", decision="draft-only",
+           outcome=f"{len(replies)} reply draft(s) queued")
     return 0
 
 

@@ -47,7 +47,8 @@ TEXT_SUFFIXES = {".md", ".py", ".json", ".yml", ".yaml", ".txt", ".sh", ".toml",
 #: Files the user fills with their own material. They ship blank and must stay
 #: blank in git: a filled one is personal data, not a secret, so the credential
 #: patterns above are blind to it.
-PERSONAL_TEMPLATES = re.compile(r"(?:^|/)(voice-profile|story-bank)\.md$")
+PERSONAL_TEMPLATES = re.compile(
+    r"(?:^|/)(voice-profile|story-bank|profile-snapshot|team)\.md$")
 FILLED_MARKER = re.compile(r"^\s*[-*]?\s*filled:\s*yes\b", re.M | re.I)
 
 

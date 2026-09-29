@@ -250,7 +250,8 @@ class PersonalTemplates(unittest.TestCase):
     anything they would recognise as risky (reported as #40).
     """
 
-    TEMPLATES = ("references/voice-profile.md", "references/story-bank.md")
+    TEMPLATES = ("references/voice-profile.md", "references/story-bank.md",
+                 "references/profile-snapshot.md", "references/team.md")
     BLANK = re.compile(r"^\s*[-*]?\s*filled:\s*no\b", re.M | re.I)
 
     def test_the_shipped_templates_are_blank(self):
@@ -271,7 +272,8 @@ class PersonalTemplates(unittest.TestCase):
         rather than trusting the working tree."""
         source = (ROOT / "scripts" / "sync_codex_marketplace.py").read_text(encoding="utf-8")
         self.assertIn("PERSONAL", source)
-        for name in ("voice-profile.md", "story-bank.md"):
+        for name in ("voice-profile.md", "story-bank.md",
+                     "profile-snapshot.md", "team.md"):
             self.assertIn(name, source, f"the sync does not name {name} as personal")
         self.assertIn("restore_templates", source)
 

@@ -26,6 +26,11 @@ leads are worth a comment before anything goes out.
 
 Safe to run with nothing configured: exits 0 if DASHBOARD_EVENTS_URL/
 EVENTS_INGEST_SECRET or APIFY_TOKEN are unset.
+
+Every run reports itself as a skill_run event for linkedin-comment-drafter,
+which is what the dashboard's Skills and Activity pages read - a missing
+APIFY_TOKEN shows up there as a failed (not configured) run instead of a
+silent no-op.
 """
 from __future__ import annotations
 
@@ -41,6 +46,14 @@ from urllib.error import URLError
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG = ROOT / "automation" / "leads.log"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from skill_run_event import finish_skill_run, skill_run_id  # noqa: E402
+from runtime import run_command  # noqa: E402
+
+
+def report(skill: str, status: str, run_id: str, started: str, **fields) -> None:
+    finish_skill_run(skill, status, run_id=run_id, started_at=started, **fields)
 
 #: Hard cap per run - keeps this well inside a sane daily outreach volume
 #: even if the search turns up a large batch of candidates.
@@ -75,11 +88,11 @@ def log(msg: str) -> None:
         fh.write(line + "\n")
 
 
-def emit_reply_drafted(fields: dict) -> None:
+def emit_reply_drafted(fields: dict) -> bool:
     url = os.getenv("DASHBOARD_EVENTS_URL")
     secret = os.getenv("EVENTS_INGEST_SECRET")
     if not url or not secret:
-        return
+        return False
     payload = {
         "schemaVersion": 1,
         "emittedAt": datetime.now().astimezone().isoformat(),
@@ -103,8 +116,10 @@ def emit_reply_drafted(fields: dict) -> None:
             method="POST",
         )
         urllib.request.urlopen(req, timeout=5).read()
+        return True
     except (URLError, OSError) as e:
         log(f"  dashboard ping failed ({type(e).__name__}) - continuing")
+        return False
 
 
 def claude_bin() -> str | None:
@@ -176,19 +191,28 @@ def parse_leads(output: str) -> list[dict]:
 
 def main() -> int:
     load_env()
+    started = datetime.now().astimezone().isoformat()
+    rid = skill_run_id("linkedin-comment-drafter", stamp=True)
+
+    def done(status: str, **fields) -> None:
+        report("linkedin-comment-drafter", status, rid, started, **fields)
+
     if not os.getenv("APIFY_TOKEN"):
         log("APIFY_TOKEN not set - lead search needs it. Nothing to do.")
+        done("failed", error_text="not configured: APIFY_TOKEN is not set")
         return 0
 
     cb = claude_bin()
     if not cb:
         log("FAILED: Claude Code CLI not found on PATH.")
+        done("failed", error_text="claude CLI not found on PATH")
         return 1
 
     sys.path.insert(0, str(ROOT))
     from lib import ApifyClient  # type: ignore
 
     log("=== lead finder run ===")
+    done("running", input_summary=f"{len(SEARCH_KEYWORDS)} keyword search")
     client = ApifyClient()
     results: list[dict] = []
     for kw in SEARCH_KEYWORDS:
@@ -199,32 +223,46 @@ def main() -> int:
 
     if not results:
         log("no search results at all - nothing to do")
+        done("failed", error_text="Apify returned no posts for any search keyword")
         return 0
     log(f"  fetched {len(results)} raw post(s) across {len(SEARCH_KEYWORDS)} keyword(s)")
 
     prompt = PROMPT_TEMPLATE.format(results_json=json.dumps(results)[:12000], cap=MAX_LEADS_PER_RUN)
-    r = subprocess.run([cb, "-p", prompt], capture_output=True, text=True,
+    r = run_command([cb, "-p", prompt], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", cwd=ROOT, timeout=900)
     if r.returncode != 0:
-        log(f"FAILED: {(r.stderr or 'no output').strip()[:300]}")
+        # quota and auth errors arrive on stdout, not stderr
+        reason = (r.stderr or r.stdout or "no output").strip()
+        log(f"FAILED: claude exited {r.returncode}: {reason[:300]}")
+        done("failed", input_summary=f"{len(results)} posts searched",
+             error_text=f"claude exited {r.returncode}: {reason[:400]}")
         return 1
 
     out = r.stdout.strip()
     if "NO_ACTION" in out and "---LEAD---" not in out:
         log("no qualifying leads found")
+        done("completed", input_summary=f"{len(results)} posts searched",
+             outcome="no qualifying leads")
         return 0
 
     leads = parse_leads(out)
     if not leads:
         log("no lead blocks parsed from output - nothing to queue")
         log(f"  raw output (first 800 chars): {out[:800]!r}")
+        done("failed", input_summary=f"{len(results)} posts searched",
+             error_text="output had no parseable lead blocks")
         return 0
 
     for fields in leads:
         log(f"  lead: {fields.get('AUTHOR', 'unknown')} - {fields.get('POST_URL')}")
-        emit_reply_drafted(fields)
+        if not emit_reply_drafted(fields):
+            done("failed", error_text="lead delivery failed; check dashboard before retrying")
+            return 1
 
     log(f"queued {len(leads)} lead comment draft(s) for approval on the dashboard")
+    done("completed", input_summary=f"{len(results)} posts searched",
+         decision=f"{len(leads)} qualifying lead(s)",
+         outcome=f"{len(leads)} lead comment draft(s) queued")
     return 0
 
 

@@ -1,10 +1,8 @@
-"""The dashboard event logger must never slow down or break a skill run.
+"""The dashboard event logger uses bounded, ordered delivery.
 
 These prove the two halves of that promise: it is a true no-op with either env
 var unset, and when both are set, it posts the right shape to `/api/events`
-with the right bearer header. The daemon-thread dispatch is captured by a
-threading.Event set from inside a tiny local HTTP server rather than a sleep,
-so the test is not a race.
+with the right bearer header. A local HTTP server records real requests.
 """
 from __future__ import annotations
 
