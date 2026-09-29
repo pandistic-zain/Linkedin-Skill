@@ -100,6 +100,7 @@ def emit_reply_drafted(fields: dict) -> bool:
         "payload": {
             "postUrl": fields.get("POST_URL"),
             "postUrn": fields.get("POST_URN"),
+            "postText": fields.get("POST_TEXT"),
             "commentUrl": None,
             "parentComment": None,
             "commentAuthor": fields.get("AUTHOR"),
@@ -163,6 +164,7 @@ before, between, or after the blocks:
 ---LEAD---
 POST_URL: <the post's URL>
 POST_URN: <urn:li:activity:... or urn:li:share:... - whatever you'd pass to Publora's create_comment as post_urn>
+POST_TEXT: <the post's own full text from the data above, one paragraph, no line breaks>
 AUTHOR: <name of the poster>
 SNIPPET: <one line quoting or summarizing what they're asking for>
 REASON: <one line: why this is a genuine lead, e.g. "founder asking for a contract React+AI dev, posted 2 days ago">
@@ -173,7 +175,7 @@ If nothing qualifies, output exactly: NO_ACTION
 """
 
 LEAD_BLOCK = re.compile(r"---LEAD---\s*(.*?)\s*---END---", re.DOTALL)
-FIELD_LINE = re.compile(r"^(POST_URL|POST_URN|AUTHOR|SNIPPET|REASON|DRAFT):\s*(.*)$")
+FIELD_LINE = re.compile(r"^(POST_URL|POST_URN|POST_TEXT|AUTHOR|SNIPPET|REASON|DRAFT):\s*(.*)$")
 
 
 def parse_leads(output: str) -> list[dict]:

@@ -81,6 +81,7 @@ def emit_reply_drafted(fields: dict) -> bool:
         "payload": {
             "postUrl": fields.get("POST_URL"),
             "postUrn": fields.get("POST_URN"),
+            "postText": fields.get("POST_TEXT"),
             "commentUrl": fields.get("COMMENT_URL"),
             "parentComment": fields.get("PARENT_COMMENT"),
             "commentAuthor": fields.get("AUTHOR"),
@@ -127,6 +128,7 @@ before, between, or after the blocks:
 ---REPLY---
 POST_URL: <the original post's URL>
 POST_URN: <urn:li:activity:... or urn:li:share:... - the value you'd pass to Publora's create_comment as post_urn>
+POST_TEXT: <the original post's own text, one paragraph, no line breaks>
 COMMENT_URL: <the parent comment's URL if you have one, else its comment_urn>
 PARENT_COMMENT: <urn:li:comment:(...) - the value you'd pass as parentComment>
 AUTHOR: <name of the person you are replying to>
@@ -138,7 +140,7 @@ If there are no hot/warm threads, output exactly: NO_ACTION
 """
 
 REPLY_BLOCK = re.compile(r"---REPLY---\s*(.*?)\s*---END---", re.DOTALL)
-FIELD_LINE = re.compile(r"^(POST_URL|POST_URN|COMMENT_URL|PARENT_COMMENT|AUTHOR|REASON|DRAFT):\s*(.*)$")
+FIELD_LINE = re.compile(r"^(POST_URL|POST_URN|POST_TEXT|COMMENT_URL|PARENT_COMMENT|AUTHOR|REASON|DRAFT):\s*(.*)$")
 
 
 def parse_replies(output: str) -> list[dict]:

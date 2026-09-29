@@ -10,8 +10,10 @@ Publora key), claims pending commands and actually executes them:
   reject          - no-op here; the reject is already recorded as a
                     DraftAction by the dashboard itself
   run_now         - run automation/run_daily.py immediately
-  approve_reply   - post an approved reply via PubloraClient.create_comment
-  reject_reply    - no-op here; already recorded on the dashboard
+  approve_reply     - post an approved reply via PubloraClient.create_comment
+  reject_reply      - no-op here; already recorded on the dashboard
+  regenerate_reply  - re-run the drafting skill for one thread/lead and
+                      write the new draft back via a reply_redrafted event
 
 Run manually (`python automation/dashboard_executor.py`) or on a
 schedule (e.g. every 5 minutes) alongside the daily task. Safe to run
@@ -23,6 +25,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.request
@@ -68,6 +71,39 @@ def api(path: str, method: str = "GET", body: dict | None = None) -> dict:
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
         return json.loads(resp.read() or b"{}")
+
+
+def ingest(event_type: str, payload: dict) -> None:
+    """POSTs one versioned envelope event to /api/ingest — same endpoint and
+    secret run_engagement.py/run_lead_finder.py use to create drafts; this is
+    how the executor writes a regenerated draft back onto its ReplyDraft row."""
+    base = os.environ["DASHBOARD_EVENTS_URL"].rstrip("/")
+    secret = os.environ["EVENTS_INGEST_SECRET"]
+    body = {
+        "schemaVersion": 1,
+        "emittedAt": datetime.now().astimezone().isoformat(),
+        "type": event_type,
+        "payload": payload,
+    }
+    req = urllib.request.Request(
+        base + "/api/ingest",
+        data=json.dumps(body).encode(),
+        method="POST",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {secret}"},
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        resp.read()
+
+
+def claude_bin() -> str | None:
+    for name in ("claude", "claude.cmd", "claude.exe"):
+        try:
+            r = subprocess.run([name, "--version"], capture_output=True, text=True, timeout=30)
+            if r.returncode == 0:
+                return name
+        except Exception:
+            continue
+    return None
 
 
 def complete(command_id: str, status: str, result: str) -> None:
@@ -153,6 +189,109 @@ def run_approve_reply(payload: dict) -> tuple[str, str]:
     return "done", f"reply posted: {str(res)[:200]}"
 
 
+REDRAFT_BLOCK = re.compile(r"---REDRAFT---\s*(.*?)\s*---END---", re.DOTALL)
+REDRAFT_FIELD = re.compile(r"^(POST_TEXT|DRAFT):\s*(.*)$")
+
+REDRAFT_REPLY_PROMPT = """Redraft ONE reply for this specific LinkedIn thread, using the \
+linkedin-reply-handler skill's voice/humanizer rules (150-300 chars). Do NOT post anything - \
+draft-only, output only.
+
+Thread context (already resolved, do not re-search for the thread itself):
+POST_URL: {post_url}
+COMMENT_AUTHOR: {comment_author}
+COMMENT_TEXT: {comment_text}
+REASON: {reason}
+PREVIOUS_DRAFT (write a different, better version - do not repeat it): {previous_draft}
+
+Fetch the original post's own text via the skill's normal fetch step, then output EXACTLY this \
+block, with no commentary before, between, or after it:
+
+---REDRAFT---
+POST_TEXT: <the original post's text, one paragraph, no line breaks>
+DRAFT: <the new reply text, single line, no line breaks>
+---END---
+
+If you cannot produce a redraft (e.g. Apify unavailable), output exactly: NO_ACTION
+"""
+
+REDRAFT_LEAD_PROMPT = """Redraft ONE outreach comment for this specific LinkedIn post, using the \
+linkedin-comment-drafter skill's steps and voice rules (200-350 chars), written as a senior \
+fullstack/AI engineer genuinely engaging with what they described needing. No hashtags, no "DM me". \
+Do NOT post anything - draft-only, output only, never call lib.publish.
+
+Post context (already resolved, do not re-search):
+POST_URL: {post_url}
+REASON: {reason}
+PREVIOUS_DRAFT (write a different, better version - do not repeat it): {previous_draft}
+
+Fetch the original post's own text via the skill's normal fetch step, then output EXACTLY this \
+block, with no commentary before, between, or after it:
+
+---REDRAFT---
+POST_TEXT: <the original post's text, one paragraph, no line breaks>
+DRAFT: <the new comment text, single line, no line breaks>
+---END---
+
+If you cannot produce a redraft, output exactly: NO_ACTION
+"""
+
+
+def run_regenerate_reply(payload: dict) -> tuple[str, str]:
+    """Re-runs the drafting skill for one existing ReplyDraft row and writes
+    the result back via reply_redrafted — keyed on the row's id, so it always
+    updates in place instead of creating a duplicate (lead drafts have no
+    commentUrl for reply_drafted's own upsert to key off)."""
+    draft_id = payload.get("replyDraftId")
+    post_url = payload.get("postUrl")
+    if not draft_id or not post_url:
+        return "failed", "missing replyDraftId or postUrl in command payload"
+
+    cb = claude_bin()
+    if not cb:
+        return "failed", "claude CLI not found on PATH"
+
+    reason = payload.get("reasonNote") or ""
+    is_lead = reason.startswith("LEAD:")
+    template = REDRAFT_LEAD_PROMPT if is_lead else REDRAFT_REPLY_PROMPT
+    prompt = template.format(
+        post_url=post_url,
+        comment_author=payload.get("commentAuthor") or "unknown",
+        comment_text=payload.get("commentText") or "",
+        reason=reason or "none given",
+        previous_draft=payload.get("previousDraft") or "",
+    )
+
+    r = run_command([cb, "-p", prompt], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", cwd=ROOT, timeout=900)
+    if r.returncode != 0:
+        reason_text = (r.stderr or r.stdout or "no output").strip()
+        return "failed", f"claude exited {r.returncode}: {reason_text[:400]}"
+
+    out = r.stdout.strip()
+    if "NO_ACTION" in out and "---REDRAFT---" not in out:
+        return "failed", "skill could not produce a redraft (NO_ACTION)"
+
+    match = REDRAFT_BLOCK.search(out)
+    if not match:
+        return "failed", "output had no parseable redraft block"
+
+    fields: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        m = REDRAFT_FIELD.match(line.strip())
+        if m:
+            fields[m.group(1)] = m.group(2).strip()
+
+    if not fields.get("DRAFT"):
+        return "failed", "redraft block had no DRAFT field"
+
+    ingest("reply_redrafted", {
+        "draftId": draft_id,
+        "draftText": fields["DRAFT"],
+        "postText": fields.get("POST_TEXT"),
+    })
+    return "done", "new draft written"
+
+
 def run_now(payload: dict) -> tuple[str, str]:
     r = run_command(
         [sys.executable, str(ROOT / "automation" / "run_daily.py")],
@@ -167,6 +306,7 @@ HANDLERS = {
     "approve_publish": run_approve_publish,
     "run_now": run_now,
     "approve_reply": run_approve_reply,
+    "regenerate_reply": run_regenerate_reply,
     "reject": lambda payload: ("done", "no local action needed — recorded on the dashboard"),
     "reject_reply": lambda payload: ("done", "no local action needed — recorded on the dashboard"),
 }
