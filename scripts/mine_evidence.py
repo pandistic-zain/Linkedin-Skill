@@ -62,7 +62,8 @@ def find_repos(roots, depth=3):
 def git(repo: Path, *args):
     try:
         r = subprocess.run(["git", "-C", str(repo), *args],
-                           capture_output=True, text=True, timeout=30)
+                           capture_output=True, text=True, timeout=30,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         return r.stdout.strip() if r.returncode == 0 else ""
     except Exception:
         return ""

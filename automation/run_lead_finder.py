@@ -49,7 +49,7 @@ LOG = ROOT / "automation" / "leads.log"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from skill_run_event import finish_skill_run, skill_run_id  # noqa: E402
-from runtime import run_command  # noqa: E402
+from runtime import run_hidden, run_command  # noqa: E402
 
 
 def report(skill: str, status: str, run_id: str, started: str, **fields) -> None:
@@ -126,7 +126,7 @@ def emit_reply_drafted(fields: dict) -> bool:
 def claude_bin() -> str | None:
     for name in ("claude", "claude.cmd", "claude.exe"):
         try:
-            r = subprocess.run([name, "--version"], capture_output=True, text=True, timeout=30)
+            r = run_hidden([name, "--version"], capture_output=True, text=True, timeout=30)
             if r.returncode == 0:
                 return name
         except Exception:

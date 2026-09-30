@@ -32,7 +32,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from runtime import run_command, single_instance
+from runtime import run_hidden, run_command, single_instance
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG = ROOT / "automation" / "executor.log"
@@ -98,7 +98,7 @@ def ingest(event_type: str, payload: dict) -> None:
 def claude_bin() -> str | None:
     for name in ("claude", "claude.cmd", "claude.exe"):
         try:
-            r = subprocess.run([name, "--version"], capture_output=True, text=True, timeout=30)
+            r = run_hidden([name, "--version"], capture_output=True, text=True, timeout=30)
             if r.returncode == 0:
                 return name
         except Exception:

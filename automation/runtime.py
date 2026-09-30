@@ -5,10 +5,16 @@ import os
 import subprocess
 
 
+def run_hidden(*args, **kwargs):
+    """Prevent console children of pythonw.exe from flashing on Windows."""
+    kwargs["creationflags"] = kwargs.get("creationflags", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return subprocess.run(*args, **kwargs)
+
+
 def run_command(*args, **kwargs):
     """Return a regular failure on timeout so existing reporting paths run."""
     try:
-        return subprocess.run(*args, **kwargs)
+        return run_hidden(*args, **kwargs)
     except subprocess.TimeoutExpired:
         return subprocess.CompletedProcess(args[0], 124, stdout="",
                                            stderr=f"command timed out after {kwargs.get('timeout')}s")

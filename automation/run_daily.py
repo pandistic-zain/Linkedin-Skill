@@ -37,7 +37,7 @@ RUN_ID = ""  # set at the top of main(); module-level default for report() calls
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from skill_run_event import emit_skill_run  # noqa: E402
-from runtime import run_command, single_instance  # noqa: E402
+from runtime import run_hidden, run_command, single_instance  # noqa: E402
 try:
     from lib.skill_run_logger import emit as _emit  # type: ignore
 except ImportError:
@@ -93,7 +93,7 @@ def report(event: dict) -> None:
 def claude_bin() -> str | None:
     for name in ("claude", "claude.cmd", "claude.exe"):
         try:
-            r = subprocess.run([name, "--version"], capture_output=True,
+            r = run_hidden([name, "--version"], capture_output=True,
                                text=True, timeout=30)
             if r.returncode == 0:
                 return name
@@ -300,7 +300,7 @@ def _host_card(path: pathlib.Path) -> str | None:
                       "-c", "user.email=pandistic.zain@gmail.com",
                       "commit", "-m", f"card: {path.stem}", "--only", rel],
                      ["push", "origin", "HEAD"]):
-            r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True,
+            r = run_hidden(["git", *args], cwd=ROOT, capture_output=True,
                                text=True, encoding="utf-8", errors="replace",
                                timeout=120)
             if r.returncode != 0 and "nothing to commit" not in (r.stdout + r.stderr):
@@ -447,7 +447,7 @@ def _audit_draft(cb: str, body: str, today: str) -> str | None:
     emit_skill_run("linkedin-humanizer", "running", run_id=rid, started_at=started,
                    input_summary=f"drafts/{today}.md")
     try:
-        r = subprocess.run([cb, "-p", AUDIT_PROMPT.format(body=body)],
+        r = run_hidden([cb, "-p", AUDIT_PROMPT.format(body=body)],
                            capture_output=True, text=True, encoding="utf-8",
                            errors="replace", cwd=ROOT, timeout=600)
     except subprocess.TimeoutExpired:

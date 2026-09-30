@@ -26,7 +26,7 @@ if (-not $python) { throw "Python not found on PATH. Install Python 3 and retry.
 # all instead of python.exe's brief console flash. Every script here logs
 # to its own file already, so losing the console's stdout costs nothing.
 $pythonw = Join-Path (Split-Path $python) 'pythonw.exe'
-if (Test-Path $pythonw) { $python = $pythonw } else { Write-Warning "pythonw.exe not found next to python.exe - tasks will still flash a console window." }
+if (Test-Path $pythonw) { $python = $pythonw } else { throw "pythonw.exe is required for background tasks without console windows." }
 
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
     Write-Warning "Claude Code CLI ('claude') is not on PATH. The engagement check will install but fail."

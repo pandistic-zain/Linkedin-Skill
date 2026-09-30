@@ -3,6 +3,11 @@
 The eleven Windows tasks run on this machine, while the user is logged in and
 network access is available. They are not an always-on cloud service.
 
+All eleven tasks start with `pythonw.exe`. Python launches Claude, Git and
+other console subprocesses with Windows `CREATE_NO_WINDOW`, preserving output
+capture, timeouts and exit codes. The installers require `pythonw.exe` rather
+than falling back to a visible console. Logs remain available in automation/.
+
 ## Run contract
 
 - Daily pipeline: one draft per local date, protected against concurrent manual,

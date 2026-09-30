@@ -225,6 +225,7 @@ def unpublish(post_group_id: Optional[str] = None, **kwargs: Any) -> Optional[di
         argv = shlex.split(cmd) + ["unpublish", post_group_id or ""]
         proc = subprocess.run(
             argv,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             input=json.dumps(payload),
             capture_output=True,
             text=True,
@@ -357,6 +358,7 @@ def publish(
         argv = shlex.split(cmd) + [kind, target_url]
         proc = subprocess.run(
             argv,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             input=json.dumps(payload),
             capture_output=True,
             text=True,

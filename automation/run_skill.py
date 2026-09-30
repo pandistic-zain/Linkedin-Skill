@@ -33,6 +33,7 @@ LOG = ROOT / "automation" / "skills.log"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "automation"))
 from skill_run_event import emit_skill_run, skill_run_id  # noqa: E402
+from runtime import run_hidden  # noqa: E402
 
 
 class NotConfigured(Exception):
@@ -63,7 +64,7 @@ def log(msg: str) -> None:
 def claude_bin() -> str | None:
     for name in ("claude", "claude.cmd", "claude.exe"):
         try:
-            r = subprocess.run([name, "--version"], capture_output=True,
+            r = run_hidden([name, "--version"], capture_output=True,
                                text=True, timeout=30)
             if r.returncode == 0:
                 return name
@@ -336,7 +337,7 @@ def main() -> int:
 
     log(f"  input: {job['input_summary']}")
     try:
-        r = subprocess.run([cb, "-p", job["prompt"]], capture_output=True, text=True,
+        r = run_hidden([cb, "-p", job["prompt"]], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", cwd=ROOT, timeout=900)
     except subprocess.TimeoutExpired:
         log("  FAILED: Claude Code call timed out after 900s")
