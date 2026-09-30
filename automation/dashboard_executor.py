@@ -191,46 +191,52 @@ def run_approve_reply(payload: dict) -> tuple[str, str]:
 
 
 REDRAFT_BLOCK = re.compile(r"---REDRAFT---\s*(.*?)\s*---END---", re.DOTALL)
-REDRAFT_FIELD = re.compile(r"^(POST_TEXT|DRAFT):\s*(.*)$")
+REDRAFT_FIELD = re.compile(r"^(DRAFT):\s*(.*)$")
 
+# Both prompts hand the post text over pre-fetched (run_regenerate_reply calls
+# lib.fetch_post itself) instead of telling the model to fetch it. A live
+# Apify tool call made by the model has no human attached to answer the
+# confirmation it correctly asks for in headless `claude -p` mode, and just
+# stalls or gets declined — see run_lead_finder.py's docstring, which hit the
+# same thing and pre-fetches in Python for the same reason.
 REDRAFT_REPLY_PROMPT = """Redraft ONE reply for this specific LinkedIn thread, using the \
-linkedin-reply-handler skill's voice/humanizer rules (150-300 chars). Do NOT post anything - \
-draft-only, output only.
+linkedin-reply-handler skill's voice/humanizer rules (150-300 chars). Do NOT call any live \
+search or fetch tool yourself - the post's text is already provided below. Do NOT post \
+anything - draft-only, output only.
 
-Thread context (already resolved, do not re-search for the thread itself):
+Thread context (already resolved, do not re-search or re-fetch):
 POST_URL: {post_url}
+POST_TEXT: {post_text}
 COMMENT_AUTHOR: {comment_author}
 COMMENT_TEXT: {comment_text}
 REASON: {reason}
 PREVIOUS_DRAFT (write a different, better version - do not repeat it): {previous_draft}
 
-Fetch the original post's own text via the skill's normal fetch step, then output EXACTLY this \
-block, with no commentary before, between, or after it:
+Output EXACTLY this block, with no commentary before, between, or after it:
 
 ---REDRAFT---
-POST_TEXT: <the original post's text, one paragraph, no line breaks>
 DRAFT: <the new reply text, single line, no line breaks>
 ---END---
 
-If you cannot produce a redraft (e.g. Apify unavailable), output exactly: NO_ACTION
+If you cannot produce a redraft, output exactly: NO_ACTION
 """
 
 REDRAFT_LEAD_PROMPT = """Redraft ONE outreach comment for this specific LinkedIn post, using the \
 linkedin-comment-drafter skill's steps and voice rules (350-600 chars for this lead), written as a senior \
-fullstack/AI engineer proposing help with their specific project.
+fullstack/AI engineer proposing help with their specific project. Do NOT call any live search or fetch \
+tool yourself - the post's text is already provided below.
 
 {lead_comment_guidance}
 
-Post context (already resolved, do not re-search):
+Post context (already resolved, do not re-search or re-fetch):
 POST_URL: {post_url}
+POST_TEXT: {post_text}
 REASON: {reason}
 PREVIOUS_DRAFT (write a different, better version - do not repeat it): {previous_draft}
 
-Fetch the original post's own text via the skill's normal fetch step, then output EXACTLY this \
-block, with no commentary before, between, or after it:
+Output EXACTLY this block, with no commentary before, between, or after it:
 
 ---REDRAFT---
-POST_TEXT: <the original post's text, one paragraph, no line breaks>
 DRAFT: <the new comment text, single line, no line breaks>
 ---END---
 
@@ -252,11 +258,18 @@ def run_regenerate_reply(payload: dict) -> tuple[str, str]:
     if not cb:
         return "failed", "claude CLI not found on PATH"
 
+    sys.path.insert(0, str(ROOT))
+    from lib import fetch_post  # type: ignore
+
+    fetched = fetch_post(post_url)
+    post_text = (fetched or {}).get("text") or payload.get("postText") or "(unavailable - draft from the context below only)"
+
     reason = payload.get("reasonNote") or ""
     is_lead = reason.startswith("LEAD:")
     template = REDRAFT_LEAD_PROMPT if is_lead else REDRAFT_REPLY_PROMPT
     prompt = template.format(
         post_url=post_url,
+        post_text=post_text,
         comment_author=payload.get("commentAuthor") or "unknown",
         comment_text=payload.get("commentText") or "",
         reason=reason or "none given",
@@ -290,7 +303,7 @@ def run_regenerate_reply(payload: dict) -> tuple[str, str]:
     ingest("reply_redrafted", {
         "draftId": draft_id,
         "draftText": fields["DRAFT"],
-        "postText": fields.get("POST_TEXT"),
+        "postText": (fetched or {}).get("text"),
     })
     return "done", "new draft written"
 
