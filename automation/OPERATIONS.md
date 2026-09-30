@@ -10,6 +10,14 @@ than falling back to a visible console. Logs remain available in automation/.
 
 ## Run contract
 
+- Lead comments, both fresh and regenerated, open with a problem insight,
+  give a brief solution glimpse without implementation details, then offer help.
+  Before the portfolio link, add a short relevant background sentence grounded
+  in the filled profile/story bank; omit it when no verified background exists.
+  Include `Portfolio: https://webbyzain.online` within 350-600 characters.
+  Claims must be grounded in supplied experience. Ordinary thread replies
+  retain their existing conversational style; all comments require approval.
+
 - Daily pipeline: one draft per local date, protected against concurrent manual,
   scheduler and dashboard starts by an OS file lock. Existing handled markers
   remain authoritative. A held draft is preserved for explicit review.

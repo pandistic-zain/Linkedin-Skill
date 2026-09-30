@@ -33,6 +33,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from runtime import run_hidden, run_command, single_instance
+from run_lead_finder import LEAD_COMMENT_GUIDANCE
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG = ROOT / "automation" / "executor.log"
@@ -215,9 +216,10 @@ If you cannot produce a redraft (e.g. Apify unavailable), output exactly: NO_ACT
 """
 
 REDRAFT_LEAD_PROMPT = """Redraft ONE outreach comment for this specific LinkedIn post, using the \
-linkedin-comment-drafter skill's steps and voice rules (200-350 chars), written as a senior \
-fullstack/AI engineer genuinely engaging with what they described needing. No hashtags, no "DM me". \
-Do NOT post anything - draft-only, output only, never call lib.publish.
+linkedin-comment-drafter skill's steps and voice rules (350-600 chars for this lead), written as a senior \
+fullstack/AI engineer proposing help with their specific project.
+
+{lead_comment_guidance}
 
 Post context (already resolved, do not re-search):
 POST_URL: {post_url}
@@ -259,6 +261,7 @@ def run_regenerate_reply(payload: dict) -> tuple[str, str]:
         comment_text=payload.get("commentText") or "",
         reason=reason or "none given",
         previous_draft=payload.get("previousDraft") or "",
+        lead_comment_guidance=LEAD_COMMENT_GUIDANCE,
     )
 
     r = run_command([cb, "-p", prompt], capture_output=True, text=True,

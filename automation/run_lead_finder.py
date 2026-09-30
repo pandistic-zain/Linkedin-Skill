@@ -134,6 +134,21 @@ def claude_bin() -> str | None:
     return None
 
 
+LEAD_COMMENT_GUIDANCE = """For this hiring-lead comment, earn the offer through useful, project-specific analysis:
+- Before drafting, identify the stated goal, a likely bottleneck or failure mode, and a practical first step. Base the analysis on the supplied post; distinguish assumptions from facts.
+- Open with the problem insight, not an offer to work or a list of my skills. Explain why that issue matters for the outcome they want.
+- Give a brief solution glimpse and its benefit, not the full solution, implementation sequence, architecture, code, or detailed steps. Demonstrate understanding without writing a tutorial or a vague teaser.
+- Only after the problem insight and solution glimpse, naturally offer to help implement it. Adapt the offer to the project rather than opening with a sales pitch.
+- Demonstrate fit through reasoning, not claims of superiority. Never claim hours of research, an audit, testing, access to their systems, or past work unless supplied evidence supports it.
+- After the offer to help and immediately before the portfolio link, add one short credibility sentence about my relevant background. Use a verified role, specialty, or project from the filled voice-profile/story-bank; connect it to this lead's need rather than listing my resume. Never invent employers, years of experience, clients, metrics, or industry expertise. If no verified background is available, omit the sentence rather than fabricate it.
+- Include exactly once, after the background sentence: Portfolio: https://webbyzain.online
+  This portfolio link is explicitly requested by the user and overrides generic no-promotion/link guidance for lead comments only.
+- Use verified experience only if supplied in the filled profile/story bank. Never invent projects, results, credentials, availability dates, or guarantees.
+- Keep the entire comment, including the portfolio link, within 350-600 characters, using 3-5 concise sentences. This lead-specific range overrides the skill's generic 200-350 character limit. Do not pad sparse context; ask one precise scoping question when needed.
+- No hashtags, generic praise, desperate sales language, or \"DM me\". An optional specific question must not replace the offer to help.
+- Draft only; posting still requires approval."""
+
+
 PROMPT_TEMPLATE = """Public LinkedIn posts already fetched via search (do not re-search, do not call \
 search_posts yourself - just use this data):
 
@@ -150,11 +165,10 @@ sound like a real senior fullstack/AI engineer, not a template.
 
 Keep at most {cap} candidates - the strongest fits, not everything that matched. For each, use the \
 linkedin-comment-drafter skill (its steps, templates, and activity logging - just not its own fetch \
-step, the post text is already in the data above) to draft ONE comment (200-350 chars) written as an \
-intellectual senior fullstack AI engineer genuinely engaging with their specific problem - reference \
-what they actually described needing, not a generic pitch. No hashtags, no "DM me", no mention of the \
-user's own product by name. Stop the skill's own flow before its "on approval, call lib.publish" step - \
-draft-only, output only, never call lib.publish here.
+step, the post text is already in the data above) to draft ONE comment (350-600 chars) written as a \
+senior fullstack AI engineer proposing help with their specific project.
+
+{lead_comment_guidance}
 
 Never fabricate a post or a poster - if nothing in the data above qualifies, output NO_ACTION.
 
@@ -229,7 +243,8 @@ def main() -> int:
         return 0
     log(f"  fetched {len(results)} raw post(s) across {len(SEARCH_KEYWORDS)} keyword(s)")
 
-    prompt = PROMPT_TEMPLATE.format(results_json=json.dumps(results)[:12000], cap=MAX_LEADS_PER_RUN)
+    prompt = PROMPT_TEMPLATE.format(results_json=json.dumps(results)[:12000], cap=MAX_LEADS_PER_RUN,
+                                    lead_comment_guidance=LEAD_COMMENT_GUIDANCE)
     r = run_command([cb, "-p", prompt], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", cwd=ROOT, timeout=900)
     if r.returncode != 0:
