@@ -18,27 +18,26 @@ from lib.publora_client import PubloraClient, PubloraError
 
 class AuditContract(unittest.TestCase):
     def test_unstructured_or_contradictory_audit_is_not_a_pass(self):
-        for output in ("Please approve tool access", "VERDICT: PASS\nVERDICT: BLOCK",
-                       "VERDICT: PASS\nBLOCKERS: unsafe hook", "Looks good"):
-            with self.subTest(output=output), tempfile.TemporaryDirectory() as tmp:
-                with mock.patch.object(run_daily, "DRAFTS", Path(tmp)), \
-                     mock.patch.object(run_daily, "emit_skill_run"), \
-                     mock.patch.object(run_daily.subprocess, "run", return_value=mock.Mock(
-                         returncode=0, stdout=output, stderr="")):
-                    self.assertIsNone(run_daily._audit_draft("claude", "body", "2099-01-01"))
+        from automation.source_post import audit
+        from test_post_package import package
+        for output in ({}, {'verdict': 'pass', 'blockers': ['unsupported fact'], 'warnings': [], 'imageInspected': True},
+                       {'verdict': 'pass', 'blockers': [], 'warnings': [], 'imageInspected': False}):
+            with self.subTest(output=output), mock.patch('automation.source_post.ask', return_value=output):
+                with self.assertRaises(ValueError):
+                    audit('claude', Path('.'), package(), Path('image.png'))
 
 
 class PublishContract(unittest.TestCase):
     def test_approved_post_is_scheduled_not_claimed_as_published(self):
-        with mock.patch.dict(os.environ, {"LINKEDIN_PLATFORM_ID": "linkedin-test"}), \
-             mock.patch("lib.publish", return_value={"success": True, "postGroupId": "test-id"}), \
-             mock.patch("lib.skill_run_logger.emit") as emit:
+        from test_post_package import package
+        p = package()
+        with mock.patch('automation.source_post.publish_package', return_value={'status': 'scheduled', 'postGroupId': 'test-id'}) as publish, \
+             mock.patch('lib.skill_run_logger.flush', return_value=True):
             status, message = dashboard_executor.run_approve_publish(
-                {"contentMd": "A concrete engineering observation. " * 20, "draftId": "draft-1"})
-        self.assertEqual(status, "done")
-        self.assertEqual(message, "scheduled: test-id")
-        self.assertEqual(emit.call_args.args[1]["status"], "scheduled")
-        self.assertIsNone(emit.call_args.args[1]["publishedAt"])
+                {'package': p, 'revision': p['revision'], 'draftId': 'draft-1'})
+        self.assertEqual(status, 'done')
+        self.assertEqual(message, 'scheduled: test-id')
+        self.assertEqual(publish.call_args.args[1], p)
 
     def test_manual_backend_does_not_report_success(self):
         with mock.patch.dict(os.environ, {"LINKEDIN_PLATFORM_ID": "linkedin-test"}), \
@@ -70,30 +69,30 @@ class PublishContract(unittest.TestCase):
 
 class RuntimeContract(unittest.TestCase):
     def test_daily_flow_holds_unavailable_audit_and_deduplicates_rerun(self):
+        from automation import source_post
+        from test_post_package import package
+        p = package()
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            body = "A concrete engineering observation. " * 20
-            results = [mock.Mock(returncode=0, stdout="", stderr=""),
-                       mock.Mock(returncode=0, stdout=body, stderr="")]
-            with mock.patch.object(run_daily, "ROOT", root), \
-                 mock.patch.object(run_daily, "DRAFTS", root / "drafts"), \
-                 mock.patch.object(run_daily, "load_env"), \
-                 mock.patch.object(run_daily, "log"), \
-                 mock.patch.object(run_daily, "report"), \
-                 mock.patch.object(run_daily, "_emit") as emit, \
-                 mock.patch.object(run_daily, "claude_bin", return_value="claude"), \
-                 mock.patch.object(run_daily, "_read_history", return_value=[]), \
-                 mock.patch.object(run_daily, "_record_history"), \
-                 mock.patch.object(run_daily, "_audit_draft", return_value=None), \
-                 mock.patch.object(run_daily, "run_command", side_effect=results) as command, \
-                 mock.patch("lib.publish") as publish, \
-                 mock.patch.dict(os.environ, {"AUTOPUBLISH": "true"}):
+            with mock.patch.object(run_daily, 'ROOT', root), \
+                 mock.patch.object(run_daily, 'DRAFTS', root / 'drafts'), \
+                 mock.patch.object(run_daily, 'load_env'), \
+                 mock.patch.object(run_daily, 'log'), \
+                 mock.patch.object(run_daily, 'claude_bin', return_value='claude'), \
+                 mock.patch.object(source_post, 'flush', return_value=True), \
+                 mock.patch.object(source_post, 'emit') as emit, \
+                 mock.patch.object(source_post, 'research', return_value={k: p[k] for k in ('topic', 'angle', 'reason', 'sources')}), \
+                 mock.patch.object(source_post, 'prepare_visual', return_value=(p['visual'], p['media'])), \
+                 mock.patch.object(source_post, 'ask', return_value={'body': p['body']}), \
+                 mock.patch.object(source_post, 'audit', side_effect=ValueError('audit unavailable')) as audit, \
+                 mock.patch('lib.publish') as publish:
                 self.assertEqual(run_daily.main(), 0)
                 self.assertEqual(run_daily.main(), 0)
             publish.assert_not_called()
-            self.assertEqual(command.call_count, 2)
-            self.assertEqual(len(list((root / "drafts").glob("*.md"))), 1)
-            self.assertEqual(emit.call_args.args[1]["verdict"], "held - audit unavailable")
+            self.assertEqual(audit.call_count, 1)
+            self.assertEqual(len(list((root / 'drafts').glob('*.md'))), 1)
+            self.assertTrue(any(call.args[0] == 'package_saved' and
+                                call.args[1]['package']['delivery'] == 'held' for call in emit.call_args_list))
 
     def test_timeout_becomes_reportable_failure(self):
         with mock.patch.object(runtime.subprocess, "run", side_effect=runtime.subprocess.TimeoutExpired("test", 2)):

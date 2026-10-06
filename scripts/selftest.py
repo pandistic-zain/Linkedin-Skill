@@ -64,12 +64,13 @@ def phase_install(root: pathlib.Path) -> Phase:
     ok = (major, minor) >= (3, 10)
     phase.add(PASS if ok else FAIL, "python", f"{major}.{minor} ({'3.10+ needed' if not ok else 'fine'})")
 
-    for module, why in (("requests", "every API layer"), ("dotenv", "reading .env")):
+    for module, why in (("requests", "every API layer"), ("dotenv", "reading .env"),
+                        ("PIL", "post image validation and rendering")):
         try:
             __import__(module)
             phase.add(PASS, f"dependency {module}", why)
         except ImportError:
-            hard = module == "requests"
+            hard = module in ("requests", "PIL")
             phase.add(FAIL if hard else WARN, f"dependency {module}",
                       f"missing - pip install -r requirements.txt ({why})")
 
@@ -277,7 +278,7 @@ NEEDS = {
     "linkedin-hook-extractor":    ("apify",),
     "linkedin-humanizer":         (),
     "linkedin-interviewer":       (),
-    "linkedin-post-writer":       ("publora", "pixfaro"),
+    "linkedin-post-writer":       ("publora",),
     "linkedin-profile-optimizer": (),
     "linkedin-reply-handler":     ("apify", "publora"),
     "linkedin-repurposer":        ("publora",),

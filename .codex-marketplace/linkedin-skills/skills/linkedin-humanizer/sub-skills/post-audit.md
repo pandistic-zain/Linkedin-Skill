@@ -16,7 +16,7 @@ Run any post draft through the 2026 heuristic checklist. Catches AI tells, timin
 ## Output
 
 - **Pass/Fail** header
-- **Blockers** (must fix before publishing): em dash density over the cap, paragraphs at 3+ AI markers, reveal bridges, external links in body
+- **Blockers** (must fix before publishing): em dash density over the cap, paragraphs at 3+ AI markers, reveal bridges, unsupported claims, drafting commentary, unverified visuals
 - **Warnings** (ship-risky): staccato stacks, sincerity markers, missing referenced numbers, generic close
 - **Score estimates:** per-paragraph tell density, approximate first-hour reach fit. No detector score: on 100-300 word text those are noise and the skill does not promise to beat them
 - **Suggested fixes:** inline rewrites for each issue
@@ -25,8 +25,10 @@ Run any post draft through the 2026 heuristic checklist. Catches AI tells, timin
 ## Checks
 
 ### Blockers (auto-fail)
+
+For a text-and-image package, also block missing actual visual inspection, image/body disagreement, draft-review narration, and automated P.S. add-ons.
 1. Em dash density above ~1 per 100 words (1-2 per post); en dash between clauses; double dash. A single em dash is not a blocker
-2. External link in body (not in first comment)
+2. Missing source attribution or unverified reuse terms; source links in the body are allowed
 3. Post exceeds 3,000 chars (LinkedIn hard limit)
 4. Opens with "In today's fast-paced world...", a reveal bridge ("Here's what", "Stop X, start Y"), or a sincerity announcement ("Let me be honest")
 5. Ends with "What do you think?", "Thoughts?", "Let that sink in."
@@ -37,13 +39,13 @@ Run any post draft through the 2026 heuristic checklist. Catches AI tells, timin
 8. Hook doesn't fit in first 210 chars (mobile `…see more` cutoff)
 9. Length outside 900-1,300 sweet spot (or 1,500-1,900 for long-form with breaks)
 10. A paragraph that reads machine-flat (4+ sentences all the same length, no clause doing work). Flag that paragraph only; sentence-length variance is not a reach lever on LinkedIn, so never suggest adding variance as a tactic
-11. No odd-precision number with a named referent (a bare number does not clear this)
-12. No named entity
-13. No first-person sensory detail
+11. A number that lacks a source or named referent
+12. Named entities inserted without evidence
+13. Invented first-person experience; absence of an anecdote is fine
 14. Stacked or perfectly parallel rule-of-three, or 3+ triads in the post (one natural triad passes)
 15. More than 2 hashtags
 16. User's own product named more than once
-17. Missing reaction-prompting moment: a specific, dated, uncomfortable fact stated flat, or an opinion with stakes. A framed confession ("I'll be honest, this hurt") does not clear this; the frame is the tell
+17. Manufactured vulnerability or a forced emotional turn; do not require either
 18. Passive voice >10%
 18a. Staccato stacks ("Short. Punchy. Done.", "No X. No Y. Just Z.", "All the X. None of the Y."), one-word paragraphs, more than 2 standalone fragments, or a long/short/long/short seesaw
 18b. Hedging stack or sincerity marker mid-post ("perhaps", "it seems", "honestly?", "real talk")

@@ -17,7 +17,7 @@ Evidence tier in brackets: [strong] = replicated across 2+ independent 2025-2026
 - **Em dash is no longer a tell.** GPT-5.4 emits 1.43 per 1,000 words, below the 3.23 human baseline; 29% of human captions and 23% of top-creator LinkedIn posts in our corpus use one (author-relative ratio 1.09) [strong]. Zero em dashes is now its own tell (the writer is trying to look human). New rule: cap at about 1 per 100 words, replace excess with comma, colon, parentheses or a rewrite. Never a period.
 - **Forced burstiness is the #1 2026 tell, not the fix.** LLM sentence-length variance is half of human [strong], but detectors do not score it, mechanical long/short alternation is a learnable humanizer fingerprint [weak: DAMAGE 2025], and on LinkedIn sentence-length variance is not an engagement lever in either direction (our corpus, n=397, within-creator: null to slightly negative) [strong]. "Short. Punchy. Done.", "No X. No Y. Just Z.", one-word paragraphs and "The result?" reveals are the current top tells. Pass 2 is now RHYTHM, not BREAK: fix machine-flat rhythm, never manufacture variance.
 - **Rule of three is still a tell, at density.** Tricolon runs at 2x expert-human rate across 2026 frontier models [strong: arXiv 2604.19768]. Stacked, perfectly parallel triads and 3+ per post get scrubbed. One natural triple stays (26% of top human tweets have one).
-- **Fingerprint injection was half wrong.** Named entities and concreteness are supported [strong: lower entity density in LLM text across 3 studies]; an odd-precision number with a referent in line 1 lifts likes 34% [vendor]. Bare numbers are not a discriminator, and inserted hedges and confessions backfire: performed hesitancy is 2x more common in LLM text than expert human text, and sincerity announcements ("let me be honest") are a named 2026 tell [strong: tropes.fyi false vulnerability; Schilke & Reimann 2025]. Pass 3 now asks for a flat, dated, uncomfortable fact instead.
+- **Fingerprint injection was half wrong.** Named entities and concreteness are supported [strong: lower entity density in LLM text across 3 studies]; an odd-precision number with a referent in line 1 lifts likes 34% [vendor]. Bare numbers are not a discriminator, and inserted hedges and confessions backfire: performed hesitancy is 2x more common in LLM text than expert human text, and sincerity announcements ("let me be honest") are a named 2026 tell [strong: tropes.fyi false vulnerability; Schilke & Reimann 2025]. Pass 3 preserves supported details without requiring invented personal fingerprints.
 - **Over-correction guard.** Humanizer output has its own fingerprint; "writing slightly worse on purpose" now reads as a tell [weak: DAMAGE 2025; slopotron]. Pass 4 checks whether Passes 1-3 introduced the very patterns they were meant to remove. Edits are proportional to real problems. When in doubt, leave it.
 
 See `sub-skills/rules-explainer.md` for per-rule justification, defenses, and citations, and `references/tier-rationale.md` §V3 for the evidence.
@@ -100,20 +100,23 @@ Detectors do not score burstiness, and on LinkedIn sentence-length variance is n
 
 Target: Flesch reading ease >55. No sentence-length variance target. The check is "does any paragraph read machine-flat, and did I add a staccato pattern," not a number.
 
-### Pass 3: ADD (human fingerprints)
+### Pass 3: GROUND (preserve real specificity)
 
-Require at least:
-- One odd-precision number WITH a named referent: who, what, when, or what it cost ("$4,730 in Vercel overages, March invoice", not "$5k" and not "significant costs"). A bare number is not a fingerprint; LLM news copy uses more numbers than humans do. The referent is what carries the signal.
-- One named entity (real person, company, date, city, tool)
-- One first-person sensory detail
-- One contradiction or self-correction, stated as a fact ("I predicted 3 months. It took 11."), not framed
-- One specific, dated, uncomfortable fact stated flat, with no framing sentence before or after it. Not "I'll be honest, this hurt: we lost the client." Just "We lost Carta as a client on 14 Feb." The fact carries the vulnerability. A framing sentence converts it into performed sincerity, which readers now read as the tell.
+Keep useful concrete details already supported by the user's input or sources.
+Do not require a number, named entity, sensory detail, self-correction, or dated
+uncomfortable fact. Those quotas encourage manufactured experience. A useful
+industry observation can stand without a personal story.
 
-Forbidden as openers or pivots (sincerity announcements, a named 2026 tell): "let me be honest", "I'll be real", "honestly?", "to be direct", "the honest version is", "honest caveat", "real talk", "I'll say the quiet part", "can I be vulnerable for a second", "unpopular opinion:" as a preface to a popular one. Also forbidden as insertions: hedges the author did not write ("perhaps", "I might be wrong but", "it seems"). Performed hesitancy is 2x more common in LLM text than in expert human text; adding it makes the draft read more AI, not less.
+Any added factual claim must trace to a source. First-person events require the
+user's evidence; another author's experience is not the user's. If evidence is
+missing, remove the claim or ask in interactive work. Scheduled work must hold
+unsupported claims rather than inventing details.
 
-Varied sentence length is Pass 2's job. Do not add rhythm here.
-
-If the input lacks these, ask the user for a specific number, name, or moment to plug in. Don't fabricate.
+For automated posts, reject P.S. add-ons and drafting narration, including
+"Good length" and "my final draft". Review the actual attached visual alongside
+the body and source evidence. Missing visual inspection cannot produce PASS.
+Source attribution links are allowed. Never insert fake hesitancy, confessions,
+or a generic question merely to make the post seem human.
 
 ### Pass 4: SELF-CHECK (over-correction guard)
 

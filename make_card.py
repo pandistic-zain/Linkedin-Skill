@@ -214,6 +214,71 @@ def hook_of_latest() -> str:
     sys.exit("Could not find a hook line.")
 
 
+def render_comparison(visual: dict, out: pathlib.Path, credit: str = '') -> pathlib.Path:
+    """Readable original explanation; text is measured, never silently clipped."""
+    from lib.post_package import validate_visual
+    validate_visual(visual)
+    canvas = Image.new('RGB', (1200, 1620), '#f6f5f1')
+    draw = ImageDraw.Draw(canvas)
+
+    def block(text, box, size, color='#242424'):
+        x, y, width, height = box
+        for current in range(size, 25, -2):
+            face = font(DISPLAY, current)
+            words, lines, line = text.split(), [], ''
+            for word in words:
+                candidate = (line + ' ' + word).strip()
+                if draw.textlength(candidate, font=face) > width:
+                    if not line:
+                        raise ValueError('visual contains an unbreakable long word')
+                    lines.append(line)
+                    line = word
+                else:
+                    line = candidate
+            lines.append(line)
+            if len(lines) * (current + 12) <= height:
+                for row in lines:
+                    draw.text((x, y), row, font=face, fill=color)
+                    y += current + 12
+                return
+        raise ValueError('visual text does not fit; shorten it before publishing')
+
+    block(visual['title'], (70, 65, 1060, 210), 64)
+    if visual['kind'] == 'comparison':
+        draw.line((600, 310, 600, 1060), fill='#d5d4ce', width=2)
+        for x, title, rows, accent in [(70, visual['leftTitle'], visual['left'], '#e9cbc3'),
+                                        (650, visual['rightTitle'], visual['right'], '#d7e7bf')]:
+            draw.rounded_rectangle((x, 310, x + 480, 460), radius=12, fill=accent)
+            block(title, (x + 20, 330, 440, 115), 42)
+            step = 560 // len(rows)
+            for i, row in enumerate(rows):
+                block(row, (x + 8, 505 + i * step, 464, step - 24), 36)
+    else:
+        rows = visual['items']
+        step = 760 // len(rows)
+        for i, row in enumerate(rows):
+            y = 315 + i * step
+            if visual['kind'] == 'process':
+                draw.rectangle((70, y, 150, y + 80), fill=CRIMSON)
+                block(str(i + 1), (92, y + 10, 55, 65), 42, '#ffffff')
+            else:
+                draw.rectangle((88, y + 12, 126, y + 50), outline=CRIMSON, width=4)
+            block(row, (190, y, 935, step - 25), 42)
+            draw.line((190, y + step - 12, 1125, y + step - 12), fill='#d5d4ce', width=2)
+    draw.rounded_rectangle((60, 1120, 1140, 1360), radius=16, fill='#e5ecd9')
+    block(visual['takeaway'], (90, 1150, 1020, 180), 54)
+    if credit:
+        block(credit, (70, 1395, 1060, 75), 28, '#555555')
+    brand = visual.get('brand', {})
+    if brand:
+        draw.line((70, 1490, 1130, 1490), fill=CRIMSON, width=4)
+        block(brand['name'], (70, 1510, 530, 80), 30)
+        block(brand['website'], (650, 1510, 480, 80), 30, '#555555')
+    out.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(out, 'PNG')
+    return out
+
+
 def render(text: str, out: pathlib.Path, motif: str | None = None) -> pathlib.Path:
     seed = int(hashlib.sha256(text.encode()).hexdigest()[:8], 16)
     img = Image.new("RGB", (W, H), INK)

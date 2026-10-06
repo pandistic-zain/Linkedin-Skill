@@ -32,6 +32,8 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from runtime import run_hidden, run_command, single_instance
 from run_lead_finder import LEAD_COMMENT_GUIDANCE
 
@@ -115,57 +117,38 @@ def complete(command_id: str, status: str, result: str) -> None:
 
 
 def run_approve_publish(payload: dict) -> tuple[str, str]:
-    """Publishes the draft's saved content. Reuses run_daily.py's guard
-    helpers so a malformed draft never reaches Publora."""
-    content_md = payload.get("contentMd")
-    if not content_md or not content_md.strip():
-        return "failed", "no draft content in command payload"
+    """Publish only a saved, audited package matching this approval revision."""
+    from automation.source_post import publish_package
+    from lib.skill_run_logger import flush
+    package = payload.get('package')
+    if not isinstance(package, dict) or payload.get('revision') != package.get('revision'):
+        return 'failed', 'missing package revision; regenerate and review this legacy draft'
+    if not flush():
+        return 'failed', 'dashboard synchronization pending; nothing published'
+    try:
+        result = publish_package(ROOT, package, draft_id=payload.get('draftId'))
+        return 'done', result['status'] + ': ' + result['postGroupId']
+    except (ValueError, OSError, KeyError) as exc:
+        return 'failed', str(exc)[:300]
 
-    spec = importlib.util.spec_from_file_location("rd", ROOT / "automation" / "run_daily.py")
-    rd = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(rd)
 
-    body = rd._strip_preamble(content_md.strip())
-    problem = rd._looks_like_commentary(body)
-    if problem:
-        return "failed", f"refused to publish: {problem}"
-
-    sys.path.insert(0, str(ROOT))
-    from lib import publish  # type: ignore
-
-    when = (datetime.now(timezone.utc) + timedelta(minutes=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    res = publish(
-        kind="post",
-        draft_text=body,
-        target_url="https://www.linkedin.com/post/new/",
-        platforms=[os.environ["LINKEDIN_PLATFORM_ID"]],
-        scheduled_time=when,
-    )
-
-    # run_daily.py's own AUTOPUBLISH path emits this via its pipeline runId
-    # so the draft shows up on /published and later feeds engager-analytics.
-    # A dashboard-approved publish has no pipeline Run - only the Command's
-    # draftId - so emit the same event keyed on that instead (ingest.ts
-    # accepts either). Without this, a manually-approved post never gets a
-    # Post row at all: invisible to /published and to any engager sync.
-    from lib.skill_run_logger import emit  # type: ignore
-
-    post_group_id = res.get("postGroupId") if isinstance(res, dict) else None
-    if not post_group_id or res.get("success") is False:
-        return "failed", "provider did not confirm scheduling; reconcile before retrying"
-    status = res.get("status") or "scheduled"
-    if status not in {"scheduled", "published"}:
-        return "failed", f"provider status {status}; reconcile before retrying"
-    emit("publish_result", {
-        "draftId": payload.get("draftId"),
-        "postGroupId": post_group_id,
-        "status": status,
-        "scheduledFor": res.get("scheduledTime") or when,
-        "publishedAt": datetime.now(timezone.utc).isoformat() if status == "published" else None,
-        "providerRaw": res if isinstance(res, dict) else None,
-    })
-
-    return "done", f"{status}: {post_group_id}"
+def run_reject(payload: dict) -> tuple[str, str]:
+    from lib.post_package import save
+    run_id = payload.get('runId', '')
+    if not re.fullmatch(r'daily-\d{4}-\d{2}-\d{2}', run_id):
+        return 'done', 'legacy rejection recorded on dashboard'
+    path = ROOT / 'drafts' / (run_id[6:] + '.json')
+    with single_instance(ROOT / 'automation' / '.post-publish.lock') as acquired:
+        if not acquired:
+            return 'failed', 'publication in progress; inspect provider state'
+        package = json.loads(path.read_text(encoding='utf-8'))
+        if package.get('revision') != payload.get('revision'):
+            return 'failed', 'stale rejection'
+        if package.get('delivery') in ('attempting', 'scheduled', 'published'):
+            return 'failed', 'already attempted; cancel through provider after reconciliation'
+        package['delivery'] = 'rejected'
+        save(path, package)
+    return 'done', 'rejected'
 
 
 def run_approve_reply(payload: dict) -> tuple[str, str]:
@@ -323,9 +306,36 @@ HANDLERS = {
     "run_now": run_now,
     "approve_reply": run_approve_reply,
     "regenerate_reply": run_regenerate_reply,
-    "reject": lambda payload: ("done", "no local action needed — recorded on the dashboard"),
+    "reject": run_reject,
     "reject_reply": lambda payload: ("done", "no local action needed — recorded on the dashboard"),
 }
+
+
+def reconcile_posts() -> None:
+    """Read provider truth every executor tick, including days with no commands."""
+    from lib.publora_client import PubloraClient
+    from lib.skill_run_logger import emit, flush
+    try:
+        posts = api('/api/commands').get('posts', [])
+    except Exception as exc:
+        log(f'post reconciliation unavailable: {type(exc).__name__}')
+        return
+    for post in posts:
+        try:
+            result = PubloraClient().get_post(post_group_id=post['postGroupId'])
+            status = result.get('status')
+            if status not in ('published', 'scheduled', 'publishing', 'failed'):
+                continue
+            linked = result.get('posts') or []
+            url = next((p.get('permalink') for p in linked if p.get('permalink')), None)
+            emit('publish_result', {'draftId': post['draftId'], 'postGroupId': post['postGroupId'],
+                                   'status': status, 'url': url,
+                                   'scheduledFor': result.get('scheduledTime'),
+                                   'publishedAt': result.get('publishedAt') or next(
+                                       (p.get('publishedAt') for p in linked if p.get('publishedAt')), None)})
+        except Exception as exc:
+            log(f'post reconciliation failed: {type(exc).__name__}')
+    flush()
 
 
 def main() -> int:
@@ -338,16 +348,19 @@ def main() -> int:
 
 def _main() -> int:
     load_env()
+    from lib.skill_run_logger import flush
+    flush()
     if not os.getenv("DASHBOARD_EVENTS_URL") or not os.getenv("EVENTS_INGEST_SECRET"):
         log("DASHBOARD_EVENTS_URL/EVENTS_INGEST_SECRET not set — nothing to poll.")
         return 0
 
     try:
-        result = api("/api/commands")
+        result = api("/api/commands", method="POST", body={"action": "claim"})
     except (HTTPError, URLError, OSError) as e:
         log(f"poll failed: {e}")
         return 1
 
+    reconcile_posts()
     commands = result.get("commands", [])
     if not commands:
         return 0

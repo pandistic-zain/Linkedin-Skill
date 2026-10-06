@@ -11,6 +11,7 @@ automation/run_skill.py writing a real row; these tests keep it true.
 from __future__ import annotations
 
 import os
+import pathlib
 import sys
 import tempfile
 import types
@@ -134,52 +135,27 @@ class ScheduledJobs(unittest.TestCase):
 
 
 class AuditBeforePublish(unittest.TestCase):
-    """Audit outcomes distinguish a valid verdict from an unavailable audit."""
+    def test_block_verdict_retains_evidence_for_review(self):
+        from automation.source_post import audit
+        from test_post_package import package
+        result = {'verdict': 'block', 'blockers': ['unsupported client experience'],
+                  'warnings': [], 'imageInspected': True}
+        with mock.patch('automation.source_post.ask', return_value=result):
+            self.assertEqual(audit('claude', pathlib.Path('.'), package(), pathlib.Path('image.png')), result)
 
-    def run_audit(self, stdout, returncode=0):
-        emits = []
-        result = types.SimpleNamespace(returncode=returncode, stdout=stdout, stderr="")
-        stub = mock.Mock(return_value=result)          # subprocess.run(...) -> result
-        tmp = Path(tempfile.mkdtemp(prefix="audit-test-"))
-        with mock.patch.object(run_daily.subprocess, "run", stub), \
-             mock.patch.object(run_daily, "DRAFTS", tmp), \
-             mock.patch.object(run_daily, "emit_skill_run",
-                               side_effect=lambda skill, status, **kw: emits.append((skill, status, kw))):
-            verdict = run_daily._audit_draft("claude", "the draft body", "2099-01-01")
-        return verdict, emits, tmp, stub
+    def test_pass_verdict_requires_both_copy_and_visual_review(self):
+        from automation.source_post import audit
+        from test_post_package import package
+        result = {'verdict': 'pass', 'blockers': [], 'warnings': ['could be tighter'], 'imageInspected': True}
+        with mock.patch('automation.source_post.ask', return_value=result):
+            self.assertEqual(audit('claude', pathlib.Path('.'), package(), pathlib.Path('image.png'))['verdict'], 'pass')
 
-    def test_block_verdict_is_reported_and_saved(self):
-        verdict, emits, tmp, _ = self.run_audit(
-            "VERDICT: BLOCK\nBLOCKERS: first line is a question\nWARNINGS: none\n")
-        self.assertEqual(verdict, "block")
-        self.assertEqual([s for _, s, _ in emits], ["running", "completed"])
-        audit = tmp / "audit-2099-01-01.md"
-        self.assertTrue(audit.is_file())
-        self.assertIn("VERDICT: BLOCK", audit.read_text(encoding="utf-8"))
-        self.assertIn("block", emits[-1][2]["outcome"])
-
-    def test_pass_verdict(self):
-        verdict, emits, _, _ = self.run_audit(
-            "VERDICT: PASS\nBLOCKERS: none\nWARNINGS: could be tighter\n")
-        self.assertEqual(verdict, "pass")
-        self.assertEqual([s for _, s, _ in emits], ["running", "completed"])
-
-    def test_a_failed_audit_is_reported_as_unavailable(self):
-        """Unavailable is not a passing verdict; main holds automatic publishing."""
-        verdict, emits, tmp, _ = self.run_audit("", returncode=1)
-        self.assertIsNone(verdict)
-        self.assertEqual([s for _, s, _ in emits], ["running", "failed"])
-        self.assertIn("claude exited 1", emits[-1][2]["error_text"])
-        self.assertFalse((tmp / "audit-2099-01-01.md").exists())
-
-    def test_the_prompt_pins_the_verdict_format(self):
-        """The parse looks for VERDICT: BLOCK, so the prompt has to ask for
-        that exact line or every audit would read as a pass."""
-        prompt = run_daily.AUDIT_PROMPT.format(body="body")
-        self.assertIn("VERDICT: PASS", prompt)
-        self.assertIn("VERDICT: BLOCK", prompt)
-        self.assertIn("DRAFT:", prompt)
-        self.assertLess(len(prompt), 4000)
+    def test_failed_audit_cannot_be_treated_as_a_pass(self):
+        from automation.source_post import audit
+        from test_post_package import package
+        with mock.patch('automation.source_post.ask', side_effect=ValueError('CLI unavailable')):
+            with self.assertRaises(ValueError):
+                audit('claude', pathlib.Path('.'), package(), pathlib.Path('image.png'))
 
 
 if __name__ == "__main__":

@@ -296,6 +296,50 @@ class PubloraClient:
 
     # ---- Internals --------------------------------------------------------
 
+    def upload_image(self, post_group_id: str, path: str) -> dict[str, Any]:
+        """Attach local bytes to an unscheduled draft, then confirm readiness.
+
+        https://docs.publora.com/endpoints/upload-media
+        No API credential is sent to the presigned storage destination.
+        """
+        from pathlib import Path
+        from .post_package import inspect_image, public_url
+        file = Path(path)
+        data = file.read_bytes()
+        info = inspect_image(data)
+        upload = self._post('/get-upload-url', {
+            'postGroupId': post_group_id, 'fileName': file.name,
+            'contentType': info['mime'], 'type': 'image',
+        })
+        url = upload['uploadUrl']
+        host = public_url(url)
+        if not (host.endswith('.amazonaws.com') or host.endswith('.publora.com')):
+            raise PubloraError('unexpected media storage host')
+        public_url(upload['fileUrl'])
+        response = requests.put(url, data=data, headers={'Content-Type': info['mime']},
+                                timeout=self.timeout, allow_redirects=False)
+        if not 200 <= response.status_code < 300:
+            raise PubloraError(f'image upload returned HTTP {response.status_code}')
+        ready = self._post('/complete-media/' + upload['mediaId'], {})
+        if ready.get('mediaFile', {}).get('status') != 'ready':
+            raise PubloraError('uploaded media is not ready')
+        return {**info, 'url': upload['fileUrl'], 'mediaId': upload['mediaId']}
+
+    def schedule_prepared(self, post_group_id: str, *, content: str,
+                          platforms: list[str], scheduled_time: str) -> dict[str, Any]:
+        """Schedule the already uploaded draft; never append its media again."""
+        if not scheduled_time:
+            raise PubloraError('prepared post needs a schedule time')
+        response = self._session.put(self.BASE_URL + '/update-post/' + post_group_id,
+                                    json={'content': content, 'platforms': platforms,
+                                          'status': 'scheduled', 'scheduledTime': scheduled_time},
+                                    timeout=self.timeout)
+        result = self._handle(response)
+        if result.get('success') is not True:
+            raise PubloraError('provider did not confirm scheduling; reconcile before retrying')
+        return {**result, 'postGroupId': post_group_id, 'status': 'scheduled',
+                'scheduledTime': scheduled_time}
+
     def _post(self, path: str, json_body: dict[str, Any]) -> dict[str, Any]:
         # ponytail: no provider idempotency contract; reconcile ambiguous writes
         # manually until a documented idempotency key is available.

@@ -352,6 +352,11 @@ def main() -> int:
         lambda: check_pixfaro(report, args.offline),
     )
     run("Effective behaviour", lambda: check_backends(report))
+    config_start = len(report.rows)
+    review = os.getenv('POST_REVIEW_ONLY', 'true').lower()
+    report.add(OK if review in ('true', 'false', '1', '0', 'yes', 'no') else BAD,
+               'POST_REVIEW_ONLY', 'valid' if review in ('true', 'false', '1', '0', 'yes', 'no') else 'use true or false')
+    report.render(config_start)
 
     print()
     if report.failed:

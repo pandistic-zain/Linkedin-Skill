@@ -21,6 +21,14 @@ Produce a 7-day LinkedIn plan built around the 3-pillar discipline (Authority 40
 - **Posting days** (optional): defaults to Tue/Wed/Thu/Fri (4 posts)
 - **Voice samples** (optional): paths to past posts for voice calibration
 
+## Automated handoff
+
+For the daily pipeline, propose source-backed topic candidates with URLs, dates,
+supported claims, visual opportunities, and distinct angles for freelance full-stack
+work. Research is refreshed by the daily writer before use. The existing weekday
+schedule and user's subject priorities win over the generic pillar mix below.
+Do not impose personal-story or vulnerability quotas on scheduled posts.
+
 ## Output
 
 A markdown plan with:

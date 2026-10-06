@@ -420,3 +420,22 @@ Part of a family of AI social-media marketing skill bundles for Claude Code and 
 - [facebook-skills](https://github.com/sergebulaev/facebook-skills) - Facebook Pages
 
 Also: [Anthropic Skills repo](https://github.com/anthropics/skills), the `awesome-claude-skills` directory.
+# Source-first daily posts
+
+The daily runner verifies current source pages, prepares a relevant visual before
+writing, audits the actual image and copy together, and saves a revision-bound
+package under `drafts/`. `draft.ps1` shows only the post body plus its review status.
+P.S. add-ons, drafting notes, invented experience, and unsupported claims hold a
+post for review. The existing 12 skills and scheduler remain in use.
+
+`POST_REVIEW_ONLY=true` is the rollout default, even if `AUTOPUBLISH=true` was
+already configured. Publora hosts prepared images on an unscheduled draft; the
+pipeline no longer commits or pushes cards to Git. Dashboard approval schedules
+the same prepared package, including its image. Local image previews remain
+available for held drafts. AI-assisted audit is a review aid, not proof of human
+authorship or a guarantee that every claim is correct.
+
+Deploy the dashboard's additive `20261006000000_post_packages` migration and code
+before enabling the updated automation. See `automation/OPERATIONS.md` for checks,
+outbox recovery, and ambiguous-provider handling. The dashboard is a separate
+repository; updating the root repository alone does not deploy these UI changes.

@@ -33,3 +33,7 @@ automation/*.log
 automation/.*.lock
 automation/.handled-*
 automation/.topic-history*
+automation/.events.sqlite3*
+
+# Local public identity for original post graphics
+automation/brand.json

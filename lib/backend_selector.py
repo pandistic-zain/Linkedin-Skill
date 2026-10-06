@@ -322,6 +322,10 @@ def publish(
         if kind == "post":
             # Publora /create-post wants a list of platform ID strings, not dicts.
             platforms = kwargs.get("platforms") or [platform_id]
+            if kwargs.get('prepared_post_group_id'):
+                return client.schedule_prepared(
+                    kwargs['prepared_post_group_id'], content=draft_text,
+                    platforms=platforms, scheduled_time=kwargs.get('scheduled_time'))
             return client.create_post(
                 content=draft_text,
                 platforms=platforms,
