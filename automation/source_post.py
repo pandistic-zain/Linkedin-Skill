@@ -17,7 +17,19 @@ from lib.publora_client import PubloraClient
 from automation.runtime import run_command, single_instance
 
 
-def ask(cli: str, root: Path, prompt: str, *, web: bool = False) -> dict:
+def embedded_json(text: str) -> dict:
+    """Research only: web-tool runs narrate before the answer, so take the first JSON object.
+    Every field of the result is still validated by the caller."""
+    start = text.find('{')
+    if start < 0:
+        raise ValueError('no JSON object in reply')
+    value, _ = json.JSONDecoder().raw_decode(text[start:])
+    if not isinstance(value, dict):
+        raise ValueError('expected a JSON object')
+    return value
+
+
+def ask(cli: str, root: Path, prompt: str, *, web: bool = False, lenient: bool = False) -> dict:
     tools = 'Read,WebSearch,WebFetch' if web else 'Read'
     reminder = ''
     for attempt in range(2):  # the CLI sometimes returns nothing or wraps the JSON in prose
@@ -27,7 +39,7 @@ def ask(cli: str, root: Path, prompt: str, *, web: bool = False) -> dict:
         if result.returncode:
             raise ValueError(f'writer unavailable: {(result.stderr or result.stdout or "no output")[:200]}')
         try:
-            return json_object(result.stdout.strip())
+            return (embedded_json if lenient else json_object)(result.stdout.strip())
         except ValueError as exc:  # JSONDecodeError is a ValueError
             if attempt:
                 raise ValueError(f'writer did not return a bare JSON object twice: {exc}') from exc
@@ -115,7 +127,7 @@ and sources (1-3 objects with url, title, publisher, publishedAt YYYY-MM-DD,
 claim, quote). quote must be a short exact passage actually read on the page.
 For "trend" require at least two independent primary publishers, not syndicated copies.
 Each source must support a specific claim. If web access is unavailable return
-{"error":"not configured: unattended web research"}. No invented URLs or facts.''', web=True)
+{"error":"not configured: unattended web research"}. No invented URLs or facts.''', web=True, lenient=True)
     if result.get('error'):
         raise ValueError(result['error'])
     brief = dict(select_topic(result.get('candidates'), history))
