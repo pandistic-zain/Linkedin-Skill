@@ -34,6 +34,9 @@ MUTED   = (132, 132, 140)
 DISPLAY = ["C:/Windows/Fonts/segoeuib.ttf", "C:/Windows/Fonts/arialbd.ttf",
            "/usr/share/fonts/truetype/lato/Lato-Bold.ttf",
            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
+BODY = ["C:/Windows/Fonts/segoeui.ttf", "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/lato/Lato-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
 MONO    = ["C:/Windows/Fonts/consola.ttf", "C:/Windows/Fonts/cour.ttf",
            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"]
 
@@ -216,15 +219,17 @@ def hook_of_latest() -> str:
 
 def render_comparison(visual: dict, out: pathlib.Path, credit: str = '') -> pathlib.Path:
     """Readable original explanation; text is measured, never silently clipped."""
-    from lib.post_package import validate_visual
+    from lib.post_package import validate_visual, DRAFTING_NOTES
     validate_visual(visual)
     canvas = Image.new('RGB', (1200, 1620), '#f6f5f1')
     draw = ImageDraw.Draw(canvas)
 
-    def block(text, box, size, color='#242424'):
+    def block(text, box, size, color='#242424', regular=False):
+        if DRAFTING_NOTES.search(text):
+            raise ValueError('visual contains drafting commentary')
         x, y, width, height = box
         for current in range(size, 25, -2):
-            face = font(DISPLAY, current)
+            face = font(BODY if regular else DISPLAY, current)
             words, lines, line = text.split(), [], ''
             for word in words:
                 candidate = (line + ' ' + word).strip()
@@ -243,35 +248,46 @@ def render_comparison(visual: dict, out: pathlib.Path, credit: str = '') -> path
                 return
         raise ValueError('visual text does not fit; shorten it before publishing')
 
-    block(visual['title'], (70, 65, 1060, 210), 64)
+    # Quiet editorial framing leaves the information, not decoration, in charge.
+    draw.rectangle((0, 0, 1200, 14), fill=CRIMSON)
+    draw.line((70, 60, 160, 60), fill=CRIMSON, width=6)
+    for x in range(1030, 1131, 25):
+        for y in range(48, 99, 25):
+            draw.ellipse((x, y, x + 3, y + 3), fill='#c7beb3')
+    block(visual['title'], (70, 105, 1060, 195), 62)
     if visual['kind'] == 'comparison':
-        draw.line((600, 310, 600, 1060), fill='#d5d4ce', width=2)
-        for x, title, rows, accent in [(70, visual['leftTitle'], visual['left'], '#e9cbc3'),
-                                        (650, visual['rightTitle'], visual['right'], '#d7e7bf')]:
-            draw.rounded_rectangle((x, 310, x + 480, 460), radius=12, fill=accent)
-            block(title, (x + 20, 330, 440, 115), 42)
+        draw.rectangle((60, 330, 580, 1080), fill='#ece8e1')
+        draw.rectangle((620, 330, 1140, 1080), fill='#e9edf0')
+        for x, title, rows, accent in [(70, visual['leftTitle'], visual['left'], '#292b30'),
+                                        (650, visual['rightTitle'], visual['right'], '#173e50')]:
+            draw.rounded_rectangle((x, 350, x + 480, 485), radius=12, fill=accent)
+            block(title, (x + 20, 367, 440, 105), 40, '#ffffff')
             step = 560 // len(rows)
             for i, row in enumerate(rows):
-                block(row, (x + 8, 505 + i * step, 464, step - 24), 36)
+                block(row, (x + 20, 525 + i * step, 440, step - 24), 36, regular=True)
     else:
         rows = visual['items']
-        step = 760 // len(rows)
+        step = 740 // len(rows)
+        if visual['kind'] == 'process':
+            draw.line((110, 375, 110, 375 + (len(rows) - 1) * step), fill='#d9b8b5', width=3)
         for i, row in enumerate(rows):
-            y = 315 + i * step
+            y = 350 + i * step
+            draw.rounded_rectangle((165, y - 6, 1130, y + step - 26), radius=12, fill='#ece8e1')
             if visual['kind'] == 'process':
-                draw.rectangle((70, y, 150, y + 80), fill=CRIMSON)
+                draw.ellipse((70, y, 150, y + 80), fill=CRIMSON)
                 block(str(i + 1), (92, y + 10, 55, 65), 42, '#ffffff')
             else:
-                draw.rectangle((88, y + 12, 126, y + 50), outline=CRIMSON, width=4)
-            block(row, (190, y, 935, step - 25), 42)
-            draw.line((190, y + step - 12, 1125, y + step - 12), fill='#d5d4ce', width=2)
-    draw.rounded_rectangle((60, 1120, 1140, 1360), radius=16, fill='#e5ecd9')
-    block(visual['takeaway'], (90, 1150, 1020, 180), 54)
+                draw.rounded_rectangle((78, y + 12, 136, y + 70), radius=10, fill='#173e50')
+                draw.line((91, y + 40, 103, y + 52, 124, y + 29), fill='#ffffff', width=5)
+            block(row, (195, y + 18, 895, step - 56), 42, regular=True)
+    draw.rounded_rectangle((60, 1120, 1140, 1360), radius=16, fill='#202a30')
+    draw.rectangle((60, 1120, 70, 1360), fill=CRIMSON)
+    block(visual['takeaway'], (100, 1150, 990, 180), 52, '#f6f5f1')
     if credit:
         block(credit, (70, 1395, 1060, 75), 28, '#555555')
     brand = visual.get('brand', {})
     if brand:
-        draw.line((70, 1490, 1130, 1490), fill=CRIMSON, width=4)
+        draw.line((70, 1490, 1130, 1490), fill='#cbc5bc', width=2)
         block(brand['name'], (70, 1510, 530, 80), 30)
         block(brand['website'], (650, 1510, 480, 80), 30, '#555555')
     out.parent.mkdir(parents=True, exist_ok=True)

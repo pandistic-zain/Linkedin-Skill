@@ -140,6 +140,19 @@ class PackageValidation(unittest.TestCase):
             out = render_comparison(visual, Path(tmp) / 'card.png', 'Sources: Example')
             self.assertEqual(pp.inspect_image(out.read_bytes())['height'], 1620)
 
+    def test_internal_notes_cannot_be_rendered_or_published(self):
+        visual = {'kind': 'process', 'title': 'Delivery checks',
+                  'items': ['Define acceptance', 'Check dependencies', 'Agree on handoff'],
+                  'takeaway': 'Agree on the finish line.', 'alt': 'Delivery checks'}
+        note = 'Layout preview - not a researched post'
+        with tempfile.TemporaryDirectory() as tmp:
+            for changed, credit in [(visual, note), ({**visual, 'title': note}, '')]:
+                out = Path(tmp) / 'card.png'
+                with self.assertRaisesRegex(ValueError, 'drafting commentary'):
+                    render_comparison(changed, out, credit)
+                self.assertFalse(out.exists())
+        self.assertEqual(pp.body_problem(note + package()['body']), 'post contains drafting commentary')
+
     def test_audit_cannot_pass_without_viewing_image(self):
         with mock.patch.object(source_post, 'ask', return_value={'verdict': 'pass', 'blockers': [],
                                                                'warnings': [], 'imageInspected': False}):

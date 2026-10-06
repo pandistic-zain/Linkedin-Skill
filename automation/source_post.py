@@ -165,6 +165,8 @@ url, sourceUrl, license="CC0" or "CC BY 4.0", licenseUrl, licenseQuote, credit, 
 The source page must explicitly connect that image to its license. Unknown reuse
 terms mean choose an original comparison. Never copy another creator's branded card.
 No invented licenses. No publishing or file writes.
+Visible text must contain only reader-facing content, branding and factual source credits.
+Keep preview labels, drafting commentary and production notes out of the image and copy.
 '''
     visual = validate_visual(ask(cli, root, prompt + json.dumps(brief) + '\nSnapshots: ' +
                                 str(root / 'drafts' / 'sources'))['visual'])

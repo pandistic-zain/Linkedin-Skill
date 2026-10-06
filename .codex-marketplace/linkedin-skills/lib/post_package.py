@@ -15,6 +15,14 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 
+# Internal production notes must never become public copy or graphic text.
+DRAFTING_NOTES = re.compile(
+    r"(?i)(layout preview|not a researched post|placeholder text|my final draft|"
+    r"here(?: is|'s) the (?:post|draft)|as an ai(?: language model)?|"
+    r"good (?:enough )?length|final output|\b\d+ chars?\b|character count)"
+)
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -161,7 +169,7 @@ def body_problem(body: str) -> str | None:
         return 'post must contain 300-3000 characters'
     if re.search(r'(?im)^\s*(?:P\.?S\.?\s*[:.]|FORMULA:|MOTIF:|WHY:|```|#\s)', body):
         return 'post contains a P.S., metadata, or Markdown wrapper'
-    if re.search(r"(?i)(good (?:enough )?length|my final draft|final output|here(?: is|'s) the (?:post|draft)|\b\d+ chars?\b|character count)", body):
+    if DRAFTING_NOTES.search(body):
         return 'post contains drafting commentary'
     return None
 
