@@ -19,12 +19,20 @@ from automation.runtime import run_command, single_instance
 
 def ask(cli: str, root: Path, prompt: str, *, web: bool = False) -> dict:
     tools = 'Read,WebSearch,WebFetch' if web else 'Read'
-    result = run_command([cli, '-p', '--tools', tools, '--allowedTools', tools],
-                         input=prompt, cwd=root, capture_output=True, text=True, encoding='utf-8',
-                         errors='replace', timeout=600)
-    if result.returncode:
-        raise ValueError(f'writer unavailable: {(result.stderr or result.stdout or "no output")[:200]}')
-    return json_object(result.stdout.strip())
+    reminder = ''
+    for attempt in range(2):  # the CLI sometimes returns nothing or wraps the JSON in prose
+        result = run_command([cli, '-p', '--tools', tools, '--allowedTools', tools],
+                             input=prompt + reminder, cwd=root, capture_output=True, text=True,
+                             encoding='utf-8', errors='replace', timeout=600)
+        if result.returncode:
+            raise ValueError(f'writer unavailable: {(result.stderr or result.stdout or "no output")[:200]}')
+        try:
+            return json_object(result.stdout.strip())
+        except ValueError as exc:  # JSONDecodeError is a ValueError
+            if attempt:
+                raise ValueError(f'writer did not return a bare JSON object twice: {exc}') from exc
+            reminder = ('\n\nYour previous reply was not a bare JSON object. Reply with ONLY the '
+                        'JSON object: no sentences before or after it, no ``` fences.')
 
 
 def model_context(package: dict) -> str:
