@@ -144,7 +144,7 @@ class Page(HTMLParser):
 
 
 def read_page(url: str) -> tuple[Page, str]:
-    data, mime, final = fetch(url)
+    data, mime, final = fetch(url, maximum=8_000_000)
     if mime not in ('text/html', 'application/xhtml+xml', 'text/plain'):
         raise ValueError('source must be a readable HTML/text page')
     return Page(data.decode('utf-8', errors='replace')), final
@@ -238,8 +238,6 @@ def publish_problem(package: dict) -> str | None:
     if not package.get('sources'):
         return 'verified sources are missing'
     for source in package['sources']:
-        if source['url'] not in package['body']:
-            return 'source attribution is missing from the post'
         age = (datetime.now(timezone.utc).date() - datetime.strptime(source['publishedAt'], '%Y-%m-%d').date()).days
         if not 0 <= age <= 30:
             return 'source needs fresh review before publishing'

@@ -108,7 +108,7 @@ class PackageValidation(unittest.TestCase):
             p[key] = 'new body' if key == 'body' else {'url': 'https://example.com/new.png'}
             self.assertIsNotNone(pp.publish_problem(p))
 
-    def test_no_image_inspection_or_missing_attribution_blocks(self):
+    def test_no_image_inspection_blocks(self):
         p = package()
         self.assertIsNone(pp.publish_problem(p))
         p['audit']['imageInspected'] = False
@@ -117,7 +117,7 @@ class PackageValidation(unittest.TestCase):
         p = package()
         p['body'] = p['body'].replace('https://example.com/report', '')
         p['revision'] = pp.revision(p)
-        self.assertIsNotNone(pp.publish_problem(p))
+        self.assertIsNone(pp.publish_problem(p))  # source links stay in the dashboard, not the post
 
     def test_private_mixed_dns_and_unsafe_urls_are_rejected(self):
         for url in ('http://example.com', 'https://user:pass@example.com', 'https://localhost', 'https://example.com:444'):
