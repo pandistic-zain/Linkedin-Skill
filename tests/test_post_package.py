@@ -37,6 +37,13 @@ def package():
 
 
 class PackageValidation(unittest.TestCase):
+    def test_research_prompt_includes_recent_history_after_conflict_resolution(self):
+        history = [{'topic': 'Old topic', 'angle': 'Old angle', 'pillar': 'delivery'}]
+        with mock.patch.object(source_post, 'ask', return_value={'error': 'not configured'} ) as ask:
+            with self.assertRaisesRegex(ValueError, 'not configured'):
+                source_post.research('claude', Path('.'), history)
+        self.assertIn('Old topic', ask.call_args_list[0].args[2])
+
     def test_reconciliation_uses_provider_truth_and_preserves_failures(self):
         from automation import dashboard_executor as executor
         posts = [{'draftId': 'd1', 'postGroupId': 'p1', 'status': 'scheduled'},
