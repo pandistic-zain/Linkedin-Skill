@@ -17,6 +17,14 @@ from lib.publora_client import PubloraClient, PubloraError
 
 
 class AuditContract(unittest.TestCase):
+    def test_empty_writer_output_is_reported_as_configuration_failure(self):
+        from automation.source_post import ask
+        completed = runtime.subprocess.CompletedProcess(
+            ['claude'], 0, stdout='', stderr='authentication required')
+        with mock.patch('automation.source_post.run_command', return_value=completed):
+            with self.assertRaisesRegex(ValueError, 'writer returned no JSON output: authentication required'):
+                ask('claude', Path('.'), 'return JSON')
+
     def test_unstructured_or_contradictory_audit_is_not_a_pass(self):
         from automation.source_post import audit
         from test_post_package import package

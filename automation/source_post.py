@@ -25,7 +25,15 @@ def ask(cli: str, root: Path, prompt: str, *, web: bool = False) -> dict:
                          errors='replace', timeout=600)
     if result.returncode:
         raise ValueError(f'writer unavailable: {(result.stderr or result.stdout or "no output")[:200]}')
-    return json_object(result.stdout.strip())
+    output = result.stdout.strip()
+    if not output:
+        detail = (result.stderr or 'no stdout or stderr output').strip()
+        raise ValueError(f'writer returned no JSON output: {detail[:200]}')
+    try:
+        return json_object(output)
+    except ValueError as exc:
+        preview = ' '.join(output.split())[:200]
+        raise ValueError(f'writer returned invalid JSON: {preview}') from exc
 
 
 def model_context(package: dict) -> str:
