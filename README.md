@@ -427,6 +427,15 @@ writing, audits the actual image and copy together, and saves a revision-bound
 package under `drafts/`. `draft.ps1` shows only the post body plus its review status.
 P.S. add-ons, drafting notes, invented experience, and unsupported claims hold a
 post for review. The existing 12 skills and scheduler remain in use.
+Selection rationale and shortlisted alternatives stay out of the writing context.
+The writer and humanizer keep every paragraph tied to the selected subject and
+its evidence. If writing, visual generation or review is unavailable, the package
+is held; research fields and local structural checks cannot replace those stages.
+Daily research and weekly planning cover AI automation, CNNs, LLMs, web development,
+full-stack development, and application security within full-stack work. Security
+coverage focuses on building secure applications, rather than general security
+news or standalone incident reporting. Provider safeguards can still reject a
+request; narrowing the subject scope does not guarantee acceptance.
 
 `POST_REVIEW_ONLY=true` is the rollout default, even if `AUTOPUBLISH=true` was
 already configured. Publora hosts prepared images on an unscheduled draft; the

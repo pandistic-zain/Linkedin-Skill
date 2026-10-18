@@ -28,6 +28,12 @@ supported claims, visual opportunities, and distinct angles for freelance full-s
 work. Research is refreshed by the daily writer before use. The existing weekday
 schedule and user's subject priorities win over the generic pillar mix below.
 Do not impose personal-story or vulnerability quotas on scheduled posts.
+For this user's automated plan, subjects are AI automation, convolutional neural
+networks (CNNs), LLMs, web development, full-stack development, and application
+security within full-stack work. Security covers preventive application engineering
+such as authentication, authorization, input validation, data privacy, dependency
+maintenance and secure deployment. General security news, standalone incidents,
+incident response and generic freelancing or pricing content are outside scope.
 
 ## Output
 

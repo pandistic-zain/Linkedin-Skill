@@ -27,6 +27,10 @@ Run any post draft through the 2026 heuristic checklist. Catches AI tells, timin
 ### Blockers (auto-fail)
 
 For a text-and-image package, also block missing actual visual inspection, image/body disagreement, draft-review narration, and automated P.S. add-ons.
+Block internal selection notes, shortlist/pillar rotation, and directions to the
+writer in text or graphics. Block paragraphs that drift from the selected topic
+into generic advice without a specific connection to the source evidence.
+An unavailable reviewer or an image integrity check cannot authorize publication.
 1. Em dash density above ~1 per 100 words (1-2 per post); en dash between clauses; double dash. A single em dash is not a blocker
 2. Missing source attribution or unverified reuse terms; source links in the body are allowed
 3. Post exceeds 3,000 chars (LinkedIn hard limit)

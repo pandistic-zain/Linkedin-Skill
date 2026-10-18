@@ -136,7 +136,13 @@ max 70 characters each). The graphic footer carries this identity. Sourced image
 keep their source credit and receive a separate "Curated by" footer. Missing branding
 holds the run instead of inventing an identity.
 
-Research shortlists 4-6 candidates across at least four of eight pillars. Selection
+Research shortlists 4-6 candidates across at least four of six subject areas:
+AI automation, CNNs, LLMs, web development, full-stack development, and application
+security within full-stack work. Security is preventive application engineering;
+general security news and standalone incident reporting are outside scope.
+Weekly planning uses the same scope. Only relevant history enters the research
+prompt; local duplicate detection still checks all history. Saved research outside
+these areas is held for fresh research rather than reused. Selection
 prefers underused pillars, excludes yesterday's pillar and similar recent angles.
 Comparisons, checklists, process diagrams and licensed source images provide layout
 variety. Repeating yesterday's layout holds the draft for revision. The saved package

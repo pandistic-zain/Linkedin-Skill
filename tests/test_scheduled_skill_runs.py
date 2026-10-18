@@ -31,6 +31,16 @@ import skill_run_event  # noqa: E402
 ENVR = {"DASHBOARD_EVENTS_URL": "https://dashboard.example", "EVENTS_INGEST_SECRET": "s3cret"}
 
 
+class PlannerTopics(unittest.TestCase):
+    def test_weekly_plan_uses_the_users_development_subjects(self):
+        prompt = run_skill.prepare_planner()['prompt']
+        for subject in ('AI automation', 'convolutional neural networks', 'LLMs',
+                        'web development', 'full-stack development', 'application-security'):
+            self.assertIn(subject, prompt)
+        self.assertNotIn('retainers versus projects', prompt)
+        self.assertNotIn('pricing pressure', prompt)
+
+
 class RecordingRequest:
     """Stands in for urllib.request.urlopen and keeps what was sent."""
 

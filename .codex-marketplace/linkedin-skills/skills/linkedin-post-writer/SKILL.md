@@ -26,8 +26,13 @@ work. The scheduled runner owns logging for its own calls; do not duplicate even
    infer permission because an image is publicly visible. If reuse is unclear,
    create an original explanation from verified facts instead. Never remove a
    creator's branding and replace it with the user's.
-4. Select one practical angle for a freelance full-stack developer: client demand,
-   pricing, scope, acquisition, delivery, or an actual effect of a tool change.
+4. Select one practical implementation angle within the user's subject areas:
+   AI automation, convolutional neural networks (CNNs), LLMs, web development,
+   full-stack development, and application security within full-stack work.
+   Security means authentication, authorization, input validation, data privacy,
+   dependency maintenance and secure deployment. General security news,
+   standalone incidents, incident response and generic freelancing advice are
+   outside this research scope.
    Check recent packages for repeated topics and angles. Own work can be a short
    supporting example only when evidence exists. Do not force every post into a
    client story or turn another person's experience into the user's.
@@ -66,6 +71,14 @@ publication. Follow each stage's exact JSON contract. Return only the requested
 object, never Markdown fences or notes outside it. Only `body` is publishable.
 Notes such as draft length, chosen formula, tool decisions, and review results must
 never enter `body`. A malformed result is held, never published as raw text.
+Selection rationale, shortlists, pillar rotation and repeat avoidance are private
+planning metadata. An angle such as "Walk a freelancer through..." is a direction
+to answer, never text to paste into the post or graphic. Every paragraph must stay
+on the selected subject and explain a supported fact or specific consequence.
+Remove generic workflow advice that could fit any unrelated story.
+Apply the humanizer's forensic and strict passes before audit. If writing, visual
+generation or audit is unavailable, hold the package; never assemble public copy
+from research fields or substitute a structural check for an actual review.
 
 ## Hard rules
 
@@ -98,8 +111,10 @@ For automated packages, read the local `automation/brand.json` public identity.
 Put the author's name and website in a readable footer on original visuals. Preserve
 source credits; label sourced visuals "Curated by" rather than claiming authorship.
 Never add a forced signature or promotional P.S. to the post body.
-Shortlist 4-6 evidence-backed topics across at least four pillars: client acquisition,
-delivery, architecture, security, performance, accessibility, business, developer tools.
+Shortlist 4-6 evidence-backed topics across at least four subject areas:
+ai-automation, cnn, llm, web-development, full-stack-development, application-security.
+Only relevant history enters the research prompt; local duplicate checks retain
+the full history. Reject saved research from outside the configured subject areas.
 Review the past 14 days; avoid repeated angles and consecutive identical pillars.
 Choose comparison, checklist, process or licensed sourced imagery to suit the subject.
 Keep the brand consistent while varying the explanation, opening and layout.

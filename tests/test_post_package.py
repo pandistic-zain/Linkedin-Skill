@@ -38,11 +38,45 @@ def package():
 
 class PackageValidation(unittest.TestCase):
     def test_research_prompt_includes_recent_history_after_conflict_resolution(self):
-        history = [{'topic': 'Old topic', 'angle': 'Old angle', 'pillar': 'delivery'}]
+        history = [{'topic': 'Old topic', 'angle': 'Old angle', 'pillar': 'full-stack-development'}]
         with mock.patch.object(source_post, 'ask', return_value={'error': 'not configured'} ) as ask:
             with self.assertRaisesRegex(ValueError, 'not configured'):
                 source_post.research('claude', Path('.'), history)
         self.assertIn('Old topic', ask.call_args_list[0].args[2])
+
+    def test_research_keeps_user_topics_and_omits_unrelated_history(self):
+        history = [{'topic': 'Application session expiry', 'angle': 'Session management',
+                    'pillar': 'application-security'},
+                   {'topic': 'OLD_UNRELATED_INCIDENT', 'angle': 'OLD_INCIDENT_DETAILS',
+                    'pillar': 'security'}]
+        with mock.patch.object(source_post, 'ask', return_value={'error': 'not configured'}) as ask:
+            with self.assertRaisesRegex(ValueError, 'not configured'):
+                source_post.research('claude', Path('.'), history)
+        prompt = ask.call_args_list[0].args[2]
+        self.assertIn('Application session expiry', prompt)
+        self.assertNotIn('OLD_UNRELATED_INCIDENT', prompt)
+        self.assertNotIn('OLD_INCIDENT_DETAILS', prompt)
+        for subject in ('AI automation', 'convolutional neural networks', 'LLMs',
+                        'web development', 'full-stack development', 'application-security'):
+            self.assertIn(subject, prompt)
+
+    def test_general_security_and_business_categories_are_outside_research_scope(self):
+        candidates = [{'topic': topic, 'angle': topic, 'reason': 'Useful', 'pillar': pillar}
+                      for topic, pillar in zip(['Workflow automation', 'Image classification',
+                                               'LLM evaluation', 'Browser rendering'],
+                                              ('ai-automation', 'cnn', 'llm', 'web-development'))]
+        self.assertEqual(len(source_post.rank_topics(candidates, [])), 4)
+        for pillar in ('security', 'business', 'client-acquisition'):
+            with self.subTest(pillar=pillar), self.assertRaisesRegex(ValueError, 'unknown content pillar'):
+                source_post.rank_topics([{**candidates[0], 'pillar': pillar}, *candidates[1:]], [])
+
+    def test_old_history_still_prevents_repeating_an_identical_topic(self):
+        candidates = [{'topic': topic, 'angle': topic, 'reason': 'Useful', 'pillar': pillar}
+                      for topic, pillar in zip(['Workflow automation', 'Image classification',
+                                               'LLM evaluation', 'Browser rendering'],
+                                              ('ai-automation', 'cnn', 'llm', 'web-development'))]
+        chosen = source_post.select_topic(candidates, [{**candidates[0], 'pillar': 'developer-tools'}])
+        self.assertNotEqual(chosen['topic'], 'Workflow automation')
 
     def test_reconciliation_uses_provider_truth_and_preserves_failures(self):
         from automation import dashboard_executor as executor
@@ -62,9 +96,9 @@ class PackageValidation(unittest.TestCase):
 
     def test_shortlist_rotates_pillars_and_blocks_repeated_angles(self):
         candidates = [{'topic': topic, 'angle': topic, 'reason': 'Useful', 'pillar': pillar}
-                      for topic, pillar in zip(['Client screening', 'Acceptance checks', 'Database design', 'Secure authentication'], source_post.PILLARS)]
-        chosen = source_post.select_topic(candidates, [{'topic': 'Client screening', 'angle': 'Client screening', 'pillar': 'client-acquisition'}])
-        self.assertEqual(chosen['pillar'], 'delivery')
+                      for topic, pillar in zip(['Workflow automation', 'Image classification', 'LLM evaluation', 'Browser rendering'], source_post.PILLARS)]
+        chosen = source_post.select_topic(candidates, [{'topic': 'Workflow automation', 'angle': 'Workflow automation', 'pillar': 'ai-automation'}])
+        self.assertEqual(chosen['pillar'], 'cnn')
         with self.assertRaises(ValueError):
             source_post.select_topic(candidates, candidates)
 
@@ -105,6 +139,36 @@ class PackageValidation(unittest.TestCase):
                      'P.S. the filter has been solid. No fourth commit needed.\n']:
             self.assertIsNotNone(pp.body_problem(text + package()['body']))
 
+    def test_internal_selection_notes_and_writer_instructions_cannot_publish(self):
+        for note in (
+            'Selected from the shortlist after excluding recent repeats and preferring less-used pillars.',
+            'Walk a freelancer through what rotating credentials means in practice.',
+            'Explain to a freelancer who builds on this platform what changed.',
+        ):
+            with self.subTest(note=note):
+                p = package()
+                p['body'] += '\n\n' + note
+                p['revision'] = pp.revision(p)
+                self.assertIsNotNone(pp.publish_problem(p))
+
+    def test_internal_notes_cannot_enter_graphic_text(self):
+        visual = {'kind': 'process', 'title': 'Check the affected release',
+                  'items': ['Identify exposed hosts', 'Investigate persistence', 'Restore trusted access'],
+                  'takeaway': 'Selected from the shortlist after excluding recent repeats.',
+                  'alt': 'Incident recovery steps'}
+        with self.assertRaisesRegex(ValueError, 'drafting commentary'):
+            pp.validate_visual(visual)
+
+    def test_writer_context_omits_selection_metadata(self):
+        p = package()
+        p.update(reason='INTERNAL_SELECTION_REASON', shortlist=[{'topic': 'UNRELATED_CANDIDATE'}],
+                 recentLayouts=['INTERNAL_LAYOUT_HISTORY'])
+        context = source_post.model_context(p)
+        for internal in ('INTERNAL_SELECTION_REASON', 'UNRELATED_CANDIDATE', 'INTERNAL_LAYOUT_HISTORY'):
+            self.assertNotIn(internal, context)
+        self.assertIn(p['topic'], context)
+        self.assertIn(p['angle'], context)
+
     def test_prose_around_json_is_not_recovered_as_a_post(self):
         with self.assertRaises(ValueError):
             pp.json_object('Here is the draft\n{"body":"test"}')
@@ -125,6 +189,12 @@ class PackageValidation(unittest.TestCase):
         p['body'] = p['body'].replace('https://example.com/report', '')
         p['revision'] = pp.revision(p)
         self.assertIsNone(pp.publish_problem(p))  # source links stay in the dashboard, not the post
+
+    def test_legacy_fallback_audit_cannot_authorize_publication(self):
+        p = package()
+        p['audit']['warnings'] = ['Local fallback audit used because Claude was unavailable.']
+        p['revision'] = pp.revision(p)
+        self.assertIn('fallback audit is insufficient', pp.publish_problem(p))
 
     def test_private_mixed_dns_and_unsafe_urls_are_rejected(self):
         for url in ('http://example.com', 'https://user:pass@example.com', 'https://localhost', 'https://example.com:444'):
@@ -168,6 +238,71 @@ class PackageValidation(unittest.TestCase):
 
 
 class PublishPackage(unittest.TestCase):
+    def test_saved_research_outside_user_subjects_is_held_without_reusing_visual(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            p = package()
+            p.update(pillar='security', delivery='held')
+            path = root / 'drafts' / (p['date'] + '.json')
+            pp.save(path, p)
+            rd = mock.Mock(ROOT=root, DRAFTS=root / 'drafts')
+            rd._already_handled_today.return_value = False
+            rd.claude_bin.return_value = 'claude'
+            with mock.patch.object(source_post, 'flush', return_value=True), \
+                 mock.patch.object(source_post, 'emit'), \
+                 mock.patch.object(source_post, 'prepare_visual') as visual, \
+                 mock.patch.object(source_post, 'PubloraClient') as client:
+                self.assertEqual(source_post.run(rd), 0)
+            visual.assert_not_called()
+            client.assert_not_called()
+            saved = json.loads(path.read_text(encoding='utf-8'))
+            self.assertEqual(saved['delivery'], 'held')
+            self.assertIn('outside the configured subject areas', saved['error'])
+            self.assertEqual(saved['postGroupId'], p['postGroupId'])
+
+    def test_model_outage_holds_each_stage_without_preparing_or_publishing(self):
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'automation'))
+        import run_daily
+        for stage in ('visual', 'draft', 'audit'):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                p = package()
+                (root / 'automation').mkdir()
+                (root / 'automation' / 'brand.json').write_text(
+                    json.dumps({'name': 'Example', 'website': 'example.com'}), encoding='utf-8')
+                outage = ValueError('writer unavailable: quota exceeded')
+                with mock.patch.object(run_daily, 'ROOT', root), \
+                     mock.patch.object(run_daily, 'DRAFTS', root / 'drafts'), \
+                     mock.patch.object(run_daily, 'load_env'), mock.patch.object(run_daily, 'log'), \
+                     mock.patch.object(run_daily, 'claude_bin', return_value='claude'), \
+                     mock.patch.object(source_post, 'flush', return_value=True), \
+                     mock.patch.object(source_post, 'emit'), \
+                     mock.patch.object(source_post, 'research', return_value={
+                         k: p[k] for k in ('topic', 'angle', 'reason', 'sources')}), \
+                     mock.patch.object(source_post, 'ask', side_effect=outage if stage != 'audit' else None,
+                                       return_value={'body': p['body']}), \
+                     mock.patch.object(source_post, 'audit', side_effect=outage), \
+                     mock.patch.object(source_post, 'PubloraClient') as client, \
+                     mock.patch('lib.publish') as publish, \
+                     mock.patch.dict(os.environ, {'AUTOPUBLISH': 'true', 'POST_REVIEW_ONLY': 'false',
+                                                 'PUBLORA_API_KEY': 'test',
+                                                 'LINKEDIN_PLATFORM_ID': 'linkedin-test'}, clear=True):
+                    if stage == 'visual':
+                        self.assertEqual(run_daily.main(), 0)
+                    else:
+                        image_path = root / 'drafts' / (p['date'] + '.png')
+                        image_path.parent.mkdir()
+                        image_path.write_bytes(image_bytes())
+                        with mock.patch.object(source_post, 'prepare_visual', return_value=(p['visual'], p['media'])):
+                            self.assertEqual(run_daily.main(), 0)
+                    client.assert_not_called()
+                    publish.assert_not_called()
+                saved = json.loads((root / 'drafts' / (p['date'] + '.json')).read_text(encoding='utf-8'))
+                self.assertEqual(saved['delivery'], 'held')
+                self.assertIn('writer unavailable:', saved['error'])
+                self.assertNotEqual(saved.get('audit', {}).get('verdict'), 'pass')
+
     def test_default_rollout_prepares_media_but_does_not_publish(self):
         import sys
         sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'automation'))

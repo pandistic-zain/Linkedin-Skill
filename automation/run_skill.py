@@ -124,18 +124,17 @@ def _month_tag() -> str:
 
 
 def prepare_planner() -> dict:
-    prompt = GUARD.format(skill="linkedin-content-planner") + """\
+    from automation.source_post import TOPIC_SCOPE
+    prompt = GUARD.format(skill="linkedin-content-planner") + TOPIC_SCOPE + '\n\n' + """\
 Use the linkedin-content-planner skill to write next week's 7-day content plan
 as markdown.
 
 Audience: founders and technical leads who might hire me for SaaS, AI
 integration or real-time builds.
 
-Theme: trends in freelancing and contract software work in my industry - what
-clients pay for, AI tooling versus hourly billing, retainers versus projects,
-pricing pressure, niching down, finding clients, what agencies get wrong. At
-most one day of the week may be a shipped-work post, and only from
-references/evidence-log.md.
+Theme: practical development topics within the subject areas above. Vary the areas
+throughout the week. Any shipped-work example needs dated support from
+references/evidence-log.md; never invent a personal project or result.
 
 Use the skill's default pillar mix and posting days, 3-5 posts, no hook
 formula twice inside the week, and the engagement goals spread across the

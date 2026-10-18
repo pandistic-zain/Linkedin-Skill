@@ -17,6 +17,13 @@ from lib.publora_client import PubloraClient, PubloraError
 
 
 class AuditContract(unittest.TestCase):
+    def test_wrapped_json_output_is_recovered(self):
+        from automation.source_post import ask
+        completed = runtime.subprocess.CompletedProcess(
+            ['claude'], 0, stdout='Final results:\n```json\n{"ok":true}\n```', stderr='')
+        with mock.patch('automation.source_post.run_command', return_value=completed):
+            self.assertEqual(ask('claude', Path('.'), 'return JSON'), {'ok': True})
+
     def test_empty_writer_output_is_reported_as_configuration_failure(self):
         from automation.source_post import ask
         completed = runtime.subprocess.CompletedProcess(

@@ -113,8 +113,13 @@ missing, remove the claim or ask in interactive work. Scheduled work must hold
 unsupported claims rather than inventing details.
 
 For automated posts, reject P.S. add-ons and drafting narration, including
-"Good length" and "my final draft". Review the actual attached visual alongside
+"Good length" and "my final draft". Block internal selection rationale, shortlists,
+pillar rotation and writer directions such as "Walk a freelancer through..." in
+both text and graphics. Each paragraph must explain the selected subject or a
+specific supported consequence; remove generic lessons that fit unrelated stories.
+Review the actual attached visual alongside
 the body and source evidence. Missing visual inspection cannot produce PASS.
+Model unavailability or an image-file integrity check cannot produce PASS either.
 Source attribution links are allowed. Never insert fake hesitancy, confessions,
 or a generic question merely to make the post seem human.
 

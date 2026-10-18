@@ -19,7 +19,10 @@ from urllib.parse import urljoin, urlsplit
 DRAFTING_NOTES = re.compile(
     r"(?i)(layout preview|not a researched post|placeholder text|my final draft|"
     r"here(?: is|'s) the (?:post|draft)|as an ai(?: language model)?|"
-    r"good (?:enough )?length|final output|\b\d+ chars?\b|character count)"
+    r"good (?:enough )?length|final output|\b\d+ chars?\b|character count|"
+    r"(?:selected|chosen|picked) from (?:the|our|a) shortlist|"
+    r"(?:excluding|avoiding) recent repeats|(?:less[- ]used|underused) (?:content )?pillars|"
+    r"\bwalk (?:a|the) freelancer through\b|\bexplain to (?:a|the) freelancer\b)"
 )
 
 
@@ -200,6 +203,11 @@ def validate_visual(v: dict) -> dict:
             text_field(v, key)
         if v.get('license') not in ('CC0', 'CC BY 4.0'):
             raise ValueError('sourced image needs verified CC0 or CC BY 4.0 terms; otherwise make an original')
+    copy = [v.get(key, '') for key in ('title', 'leftTitle', 'rightTitle', 'takeaway', 'alt', 'credit')]
+    for key in ('items', 'left', 'right'):
+        copy.extend(v.get(key, []))
+    if any(isinstance(text, str) and DRAFTING_NOTES.search(text) for text in copy):
+        raise ValueError('visual contains drafting commentary')
     return v
 
 
@@ -232,6 +240,9 @@ def publish_problem(package: dict) -> str | None:
     if (audit.get('verdict') != 'pass' or audit.get('blockers') != []
             or audit.get('imageInspected') is not True):
         return 'package audit has not passed'
+    if any(isinstance(warning, str) and 'Local fallback audit used' in warning
+           for warning in audit.get('warnings', [])):
+        return 'package needs an actual image-and-copy review; fallback audit is insufficient'
     media = package.get('media', {})
     if not media.get('url') or not media.get('sha256') or not package.get('postGroupId'):
         return 'prepared media is missing'
