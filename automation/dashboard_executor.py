@@ -160,6 +160,12 @@ def run_approve_reply(payload: dict) -> tuple[str, str]:
     if not post_urn or not draft_text:
         return "failed", "missing postUrn or draftText in command payload"
 
+    if not api('/api/commands', method='POST', body={
+        'action': 'reserve_reply', 'replyDraftId': payload.get('replyDraftId'),
+        'draftText': draft_text,
+    }).get('ok'):
+        return 'failed', 'reply approval changed or was already reserved'
+
     sys.path.insert(0, str(ROOT))
     from lib import PubloraClient  # type: ignore
 
@@ -301,7 +307,88 @@ def run_now(payload: dict) -> tuple[str, str]:
     return "failed", f"run_daily.py exit {r.returncode}: {(r.stderr or r.stdout).strip()[:500]}"
 
 
+def run_edit_draft(payload: dict) -> tuple[str, str]:
+    """Synchronize an operator edit, re-audit, and return it for fresh approval."""
+    from lib.post_package import body_problem, digest, now, revision, save
+    from lib.publora_client import PubloraClient
+    from lib.skill_run_logger import emit, flush
+    from automation.source_post import audit
+    from automation.run_daily import claude_bin
+    run_id, expected, body = (payload.get(key) for key in ('runId', 'revision', 'body'))
+    if (not isinstance(run_id, str) or not re.fullmatch(r'daily-\d{4}-\d{2}-\d{2}', run_id)
+            or not isinstance(expected, str) or not re.fullmatch(r'[a-f0-9]{64}', expected)
+            or not isinstance(body, str) or not body.strip() or len(body) > 3000):
+        return 'failed', 'invalid draft revision edit'
+    path = ROOT / 'drafts' / (run_id[6:] + '.json')
+    with single_instance(ROOT / 'automation' / '.post-publish.lock') as acquired:
+        if not acquired:
+            return 'failed', 'publication in progress; refresh and reconcile before editing'
+        package = json.loads(path.read_text(encoding='utf-8'))
+        if ((package.get('revision') != expected and package.get('body') != body.strip())
+                or package.get('delivery') not in ('ready', 'held')):
+            return 'failed', 'local package changed or has already been submitted'
+        if not api('/api/commands', method='POST', body={
+            'action': 'reserve_edit', 'draftId': payload.get('draftId'),
+            'revision': expected, 'body': body.strip(),
+        }).get('ok'):
+            return 'failed', 'edit changed, rejected or already reserved'
+        image = (ROOT / package.get('media', {}).get('localPath', '')).resolve()
+        if (not image.is_relative_to((ROOT / 'drafts').resolve()) or not image.is_file()
+                or digest(image.read_bytes()) != package.get('media', {}).get('sha256')):
+            return 'failed', 'reviewed image is missing or changed'
+        client = PubloraClient()
+        provider = client.get_post(post_group_id=package['postGroupId'])
+        if provider.get('status') != 'draft':
+            return 'failed', 'provider post is no longer a draft; reconcile before editing'
+        package.update(body=body.strip(), delivery='held', updatedAt=now())
+        package.pop('audit', None)
+        package.pop('error', None)
+        # Hold locally before any fallible remote work. A failed audit/update cannot publish.
+        save(path, package)
+        path.with_suffix('.md').write_text(package['body'], encoding='utf-8')
+        try:
+            problem = body_problem(package['body'])
+            if problem:
+                raise ValueError(problem)
+            package['audit'] = audit(claude_bin(), ROOT, package, image)
+            if package['audit']['verdict'] != 'pass':
+                raise ValueError('edited draft blocked by the copy and image audit')
+            client.update_draft_content(post_group_id=package['postGroupId'], content=package['body'])
+            confirmed = client.get_post(post_group_id=package['postGroupId'])
+            children = confirmed.get('posts', [])
+            if (confirmed.get('status') != 'draft' or len(children) != 1
+                    or children[0].get('content') != package['body']):
+                raise ValueError('provider text was not confirmed; publishing remains held')
+            package['delivery'] = 'ready'
+        except Exception as exc:
+            package['error'] = str(exc)[:300] if isinstance(exc, ValueError) else type(exc).__name__
+        package['updatedAt'] = now()
+        package['revision'] = revision(package)
+        save(path, package)
+        emit('package_saved', {'runId': run_id, 'package': package})
+        if not flush():
+            return 'failed', 'edit saved locally; dashboard synchronization pending'
+        if package['delivery'] != 'ready':
+            return 'failed', package.get('error', 'edited draft remains held')
+    return 'done', 'Edited revision audited and synchronized. Fresh human approval required.'
+
+
+def run_sync_audience(payload: dict) -> tuple[str, str]:
+    result = run_command(
+        [sys.executable, str(ROOT / 'automation' / 'run_analytics.py')],
+        cwd=ROOT, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=2400,
+    )
+    if result.returncode:
+        return 'failed', f'audience sync exited {result.returncode}; inspect the analytics log'
+    outcomes = re.findall(r'^DASHBOARD_SYNC_RESULT=(completed|failed)\s*$', result.stdout or '', re.M)
+    if not outcomes or outcomes[-1] != 'completed':
+        return 'failed', 'Audience sync did not confirm completion. Inspect the analytics skill invocation and local log.'
+    return 'done', 'Engagement and audience synchronization completed.'
+
+
 HANDLERS = {
+    "edit_draft": run_edit_draft,
+    "sync_audience": run_sync_audience,
     "approve_publish": run_approve_publish,
     "run_now": run_now,
     "approve_reply": run_approve_reply,

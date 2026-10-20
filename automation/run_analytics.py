@@ -57,6 +57,9 @@ def report(status: str, run_id: str, started: str, **fields) -> None:
     showing IDLE forever."""
     finish_skill_run("linkedin-engager-analytics", status, run_id=run_id,
                      started_at=started, **fields)
+    if status in ("completed", "failed"):
+        # The command executor needs the domain outcome: scheduled failures intentionally exit 0.
+        print(f"DASHBOARD_SYNC_RESULT={status}", flush=True)
 
 
 def load_env() -> None:

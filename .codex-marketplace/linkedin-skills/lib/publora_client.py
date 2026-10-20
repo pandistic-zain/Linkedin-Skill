@@ -204,6 +204,19 @@ class PubloraClient:
         )
         return self._handle(r)
 
+    def update_draft_content(self, *, post_group_id: str, content: str) -> dict[str, Any]:
+        """Replace only draft text. Callers must first reconcile provider status.
+
+        Text replacement is idempotent; this method never schedules or publishes.
+        """
+        if not content.strip() or len(content) > 3000:
+            raise PubloraError("draft content must contain 1 to 3,000 characters")
+        r = self._session.put(
+            f"{self.BASE_URL}/update-post/{post_group_id}",
+            json={"content": content}, timeout=self.timeout,
+        )
+        return self._handle(r)
+
     def list_posts(self, *, status: Optional[str] = None) -> list[dict[str, Any]]:
         """List posts, optionally filtered by status (e.g. "published").
 

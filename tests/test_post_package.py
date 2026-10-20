@@ -23,11 +23,12 @@ def image_bytes():
 
 
 def package():
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now().astimezone().date().isoformat()
     p = {'runId': 'daily-' + today, 'date': today, 'topic': 'Delivery scope', 'angle': 'Check the budget',
          'reason': 'A practical client qualification decision', 'delivery': 'ready', 'postGroupId': 'provider-id',
          'body': 'A project needs a clear acceptance boundary. ' * 10 + '\nSource: https://example.com/report',
-         'sources': [{'url': 'https://example.com/report', 'publisher': 'Example', 'publishedAt': today}],
+         'sources': [{'url': 'https://example.com/report', 'publisher': 'Example',
+                      'publishedAt': datetime.now(timezone.utc).date().isoformat()}],
          'media': {'url': 'https://example.com/image.png', 'sha256': pp.digest(image_bytes()), 'mediaId': 'media-id',
                    'localPath': 'drafts/image.png'},
          'visual': {'kind': 'comparison'},
